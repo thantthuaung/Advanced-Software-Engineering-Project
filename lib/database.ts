@@ -1,0 +1,482 @@
+import Database from 'better-sqlite3'
+import path from 'path'
+import fs from 'fs'
+import { randomUUID } from 'crypto'
+import bcrypt from 'bcryptjs'
+import type { 
+  User, 
+  GymSession, 
+  Booking, 
+  Achievement, 
+  UserAchievement, 
+  Notification, 
+  Feedback, 
+  AdminStats,
+  Waitlist,
+  WorkoutBuddy,
+  Announcement
+} from './types'
+
+class SQLiteDatabase {
+  private db: Database.Database
+
+  constructor() {
+    // Create database directory if it doesn't exist
+    const dbDir = path.join(process.cwd(), 'data')
+    if (!fs.existsSync(dbDir)) {
+      fs.mkdirSync(dbDir, { recursive: true })
+    }
+
+    // Initialize database
+    const dbPath = path.join(dbDir, 'jcu-gym.db')
+    this.db = new Database(dbPath)
+    
+    // Enable foreign keys
+    this.db.pragma('foreign_keys = ON')
+    
+    // Initialize schema
+    this.initializeSchema()
+    
+    // Initialize production data if needed
+    if (typeof window === 'undefined') {
+      setTimeout(() => {
+        this.initializeProductionData().catch(console.error)
+      }, 100)
+    }
+  }
+
+  private initializeSchema() {
+    const schemaPath = path.join(process.cwd(), 'lib', 'database-setup.sql')
+    const schema = fs.readFileSync(schemaPath, 'utf8')
+    
+    // Execute schema creation
+    this.db.exec(schema)
+  }
+
+  private async initializeProductionData() {
+    // Check if any admin users exist
+    const adminCount = this.db.prepare('SELECT COUNT(*) as count FROM users WHERE role = ?').get('admin') as { count: number }
+    
+    if (adminCount.count === 0) {
+      console.log('Creating initial admin user for production...')
+      
+      try {
+        // Hash default admin password
+        const adminPassword = await bcrypt.hash('admin123', 12)
+
+        // Insert initial admin user
+        const insertUser = this.db.prepare(`
+          INSERT INTO users (
+            id, email, password_hash, first_name, last_name, student_id, role, membership_type, status,
+            phone, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship,
+            created_at, approval_date, expiry_date, points, streak, total_workouts,
+            payment_status, payment_method, payment_amount, payment_date, payment_reference, billing_address
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `)
+
+        insertUser.run(
+          randomUUID(),
+          'admin@my.jcu.edu.au',
+          adminPassword,
+          'System',
+          'Administrator',
+          'JC000001',
+          'admin',
+          'premium',
+          'approved',
+          '+65 6576 7000',
+          'JCU IT Support',
+          '+65 6576 7000',
+          'Institution',
+          new Date().toISOString(),
+          new Date().toISOString(),
+          new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          0,
+          0,
+          0,
+          'paid',
+          'waived',
+          0,
+          new Date().toISOString(),
+          'ADMIN_SYSTEM',
+          'JCU Campus'
+        )
+
+        console.log('✅ Initial admin user created')
+        
+        // Initialize recurring gym sessions for the next 30 days
+        this.initializeProductionSessions()
+        
+      } catch (error) {
+        console.error('❌ Error creating initial admin:', error)
+      }
+    }
+  }
+
+  private initializeProductionSessions() {
+    // Check if any sessions exist
+    const sessionCount = this.db.prepare('SELECT COUNT(*) as count FROM gym_sessions').get() as { count: number }
+    
+    if (sessionCount.count === 0) {
+      console.log('Creating production gym sessions...')
+      
+      const insertSession = this.db.prepare(`
+        INSERT INTO gym_sessions (
+          id, date, start_time, end_time, capacity, current_bookings, is_active, type,
+          instructor, description, difficulty, waitlist_count, price, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `)
+
+      const timeSlots = [
+        { start: "06:00", end: "08:00", capacity: 25 },
+        { start: "08:00", end: "10:00", capacity: 30 },
+        { start: "10:00", end: "12:00", capacity: 25 },
+        { start: "12:00", end: "14:00", capacity: 35 },
+        { start: "14:00", end: "16:00", capacity: 30 },
+        { start: "16:00", end: "18:00", capacity: 40 },
+        { start: "18:00", end: "20:00", capacity: 45 },
+        { start: "20:00", end: "22:00", capacity: 25 }
+      ]
+
+      // Create sessions for the next 30 days (Monday to Friday only)
+      for (let i = 0; i < 30; i++) {
+        const date = new Date()
+        date.setDate(date.getDate() + i)
+        
+        // Skip weekends (0 = Sunday, 6 = Saturday)
+        if (date.getDay() === 0 || date.getDay() === 6) continue
+        
+        const dateString = date.toISOString().split('T')[0]
+        
+        timeSlots.forEach((slot, index) => {
+          const sessionId = `gym-${dateString}-${index}`
+          const now = new Date().toISOString()
+          
+          insertSession.run(
+            sessionId,
+            dateString,
+            slot.start,
+            slot.end,
+            slot.capacity,
+            0, // Start with no bookings
+            true,
+            'general',
+            'Self-guided',
+            'Open gym access with full equipment availability',
+            null,
+            0,
+            null,
+            now,
+            now
+          )
+        })
+      }
+      
+      console.log('✅ Production gym sessions created')
+    }
+  }
+
+  // User methods
+  getUserByEmail(email: string) {
+    const stmt = this.db.prepare('SELECT * FROM users WHERE email = ?')
+    return stmt.get(email) as User | undefined
+  }
+
+  getUserById(id: string) {
+    const stmt = this.db.prepare('SELECT * FROM users WHERE id = ?')
+    return stmt.get(id) as User | undefined
+  }
+
+  getAllUsers() {
+    const stmt = this.db.prepare('SELECT * FROM users ORDER BY created_at DESC')
+    return stmt.all() as User[]
+  }
+
+  createUser(userData: any) {
+    const stmt = this.db.prepare(`
+      INSERT INTO users (
+        id, email, password_hash, first_name, last_name, student_id, role, membership_type, status,
+        phone, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship,
+        created_at, approval_date, expiry_date, points, streak, total_workouts,
+        payment_status, payment_method, payment_amount, payment_date, payment_reference, billing_address
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    
+    return stmt.run(
+      userData.id || randomUUID(),
+      userData.email,
+      userData.password_hash || userData.passwordHash,
+      userData.first_name || userData.firstName,
+      userData.last_name || userData.lastName,
+      userData.student_id || userData.studentId,
+      userData.role || 'student',
+      userData.membership_type || userData.membershipType,
+      userData.status || 'pending',
+      userData.phone,
+      userData.emergency_contact_name || (userData.emergencyContact && userData.emergencyContact.name),
+      userData.emergency_contact_phone || (userData.emergencyContact && userData.emergencyContact.phone),
+      userData.emergency_contact_relationship || (userData.emergencyContact && userData.emergencyContact.relationship),
+      userData.created_at || userData.createdAt || new Date().toISOString(),
+      userData.approval_date || userData.approvalDate,
+      userData.expiry_date || userData.expiryDate,
+      userData.points || 0,
+      userData.streak || 0,
+      userData.total_workouts || userData.totalWorkouts || 0,
+      userData.payment_status || userData.paymentStatus,
+      userData.payment_method || userData.paymentMethod,
+      userData.payment_amount || userData.paymentAmount || 0,
+      userData.payment_date || userData.paymentDate,
+      userData.payment_reference || userData.paymentReference,
+      userData.billing_address || userData.billingAddress
+    )
+  }
+
+  updateUser(id: string, updates: Partial<User>) {
+    const fields = Object.keys(updates).map(key => `${key} = ?`).join(', ')
+    const values = Object.values(updates)
+    values.push(id)
+    
+    const stmt = this.db.prepare(`UPDATE users SET ${fields}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`)
+    return stmt.run(...values)
+  }
+
+  // Session methods
+  getSessionsByDate(date: string) {
+    const stmt = this.db.prepare('SELECT * FROM gym_sessions WHERE date = ? AND is_active = 1 ORDER BY start_time')
+    return stmt.all(date) as GymSession[]
+  }
+
+  getSessionById(id: string) {
+    const stmt = this.db.prepare('SELECT * FROM gym_sessions WHERE id = ?')
+    return stmt.get(id) as GymSession | undefined
+  }
+
+  createSession(sessionData: any) {
+    const stmt = this.db.prepare(`
+      INSERT INTO gym_sessions (
+        id, date, start_time, end_time, capacity, current_bookings, is_active, type,
+        instructor, description, difficulty, waitlist_count, price, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    
+    const now = new Date().toISOString()
+    
+    // Convert boolean to 0/1 for SQLite
+    let isActive = 1 // Default to active
+    if (sessionData.is_active !== undefined) {
+      isActive = sessionData.is_active ? 1 : 0
+    } else if (sessionData.isActive !== undefined) {
+      isActive = sessionData.isActive ? 1 : 0
+    }
+    
+    return stmt.run(
+      sessionData.id || randomUUID(),
+      sessionData.date,
+      sessionData.start_time || sessionData.startTime,
+      sessionData.end_time || sessionData.endTime,
+      sessionData.capacity,
+      sessionData.current_bookings || sessionData.currentBookings || 0,
+      isActive,
+      sessionData.type,
+      sessionData.instructor || null,
+      sessionData.description || null,
+      sessionData.difficulty || null,
+      sessionData.waitlist_count || sessionData.waitlistCount || 0,
+      sessionData.price || null,
+      now,
+      now
+    )
+  }
+
+  updateSessionBookingCount(sessionId: string, increment: number = 1) {
+    const stmt = this.db.prepare(`
+      UPDATE gym_sessions 
+      SET current_bookings = current_bookings + ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?
+    `)
+    return stmt.run(increment, sessionId)
+  }
+
+  // Booking methods
+  createBooking(bookingData: any) {
+    const stmt = this.db.prepare(`
+      INSERT INTO bookings (
+        id, user_id, session_id, booking_date, status, check_in_time, check_out_time,
+        notes, rating, feedback, is_recurring, recurring_id, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    
+    const now = new Date().toISOString()
+    
+    // Prepare parameters with explicit null values instead of undefined
+    const params = [
+      bookingData.id || randomUUID(),
+      bookingData.user_id || bookingData.userId,
+      bookingData.session_id || bookingData.sessionId,
+      bookingData.booking_date || bookingData.bookingDate || now,
+      bookingData.status || 'confirmed',
+      null, // check_in_time
+      null, // check_out_time
+      null, // notes
+      null, // rating
+      null, // feedback
+      0,    // is_recurring (always 0 for now)
+      null, // recurring_id
+      now,  // created_at
+      now   // updated_at
+    ]
+    
+    const result = stmt.run(...params)
+    
+    // Update session booking count
+    this.updateSessionBookingCount(bookingData.session_id || bookingData.sessionId, 1)
+    
+    return result
+  }
+
+  getUserBookings(userId: string) {
+    const stmt = this.db.prepare(`
+      SELECT b.*, s.date, s.start_time, s.end_time, s.type, s.description
+      FROM bookings b
+      JOIN gym_sessions s ON b.session_id = s.id
+      WHERE b.user_id = ?
+      ORDER BY s.date DESC, s.start_time DESC
+    `)
+    return stmt.all(userId)
+  }
+
+  getBookingsBySession(sessionId: string) {
+    const stmt = this.db.prepare(`
+      SELECT b.*, u.first_name, u.last_name, u.email
+      FROM bookings b
+      JOIN users u ON b.user_id = u.id
+      WHERE b.session_id = ?
+      ORDER BY b.created_at
+    `)
+    return stmt.all(sessionId)
+  }
+
+  // Billing methods
+  getBillingTransactions() {
+    const stmt = this.db.prepare(`
+      SELECT bt.*, u.first_name || ' ' || u.last_name as user_name, u.email as user_email
+      FROM billing_transactions bt
+      JOIN users u ON bt.user_id = u.id
+      ORDER BY bt.created_at DESC
+    `)
+    return stmt.all()
+  }
+
+  createBillingTransaction(transaction: any) {
+    const stmt = this.db.prepare(`
+      INSERT INTO billing_transactions (
+        id, user_id, amount, payment_method, payment_reference, 
+        transaction_type, description, status, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    
+    return stmt.run(
+      transaction.id || randomUUID(),
+      transaction.user_id || transaction.userId,
+      transaction.amount,
+      transaction.payment_method || transaction.paymentMethod,
+      transaction.payment_reference || transaction.paymentReference,
+      transaction.transaction_type || transaction.transactionType || 'payment',
+      transaction.description || 'Membership payment',
+      transaction.status || 'completed',
+      new Date().toISOString()
+    )
+  }
+
+  // Analytics methods
+  getSessionAnalytics() {
+    const stmt = this.db.prepare(`
+      SELECT 
+        s.start_time as time,
+        COUNT(b.id) as bookings,
+        AVG(s.current_bookings * 100.0 / s.capacity) as utilization
+      FROM gym_sessions s
+      LEFT JOIN bookings b ON s.id = b.session_id AND b.status = 'confirmed'
+      WHERE s.date >= date('now', '-30 days')
+      GROUP BY s.start_time
+      ORDER BY bookings DESC
+    `)
+    return stmt.all()
+  }
+
+  getWeeklySessionCount() {
+    const stmt = this.db.prepare(`
+      SELECT COUNT(*) as count 
+      FROM gym_sessions 
+      WHERE date >= date('now', '-7 days') AND date <= date('now')
+    `)
+    return stmt.get() as { count: number }
+  }
+
+  getWeeklyBookingCount() {
+    const stmt = this.db.prepare(`
+      SELECT COUNT(*) as count 
+      FROM bookings b
+      JOIN gym_sessions s ON b.session_id = s.id
+      WHERE s.date >= date('now', '-7 days') AND s.date <= date('now')
+      AND b.status = 'confirmed'
+    `)
+    return stmt.get() as { count: number }
+  }
+
+  getAdminStats(): AdminStats {
+    const totalUsers = this.db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number }
+    const activeUsers = this.db.prepare('SELECT COUNT(*) as count FROM users WHERE status = ?').get('approved') as { count: number }
+    const pendingApprovals = this.db.prepare('SELECT COUNT(*) as count FROM users WHERE status = ?').get('pending') as { count: number }
+    const todayBookings = this.db.prepare('SELECT COUNT(*) as count FROM bookings WHERE date(created_at) = date(\'now\')').get() as { count: number }
+    
+    const analytics = this.getSessionAnalytics()
+    const popularTimeSlots = analytics.map((row: any) => ({
+      time: row.time,
+      bookings: row.bookings
+    }))
+
+    return {
+      totalUsers: totalUsers.count,
+      activeUsers: activeUsers.count,
+      pendingApprovals: pendingApprovals.count,
+      todayBookings: todayBookings.count,
+      weeklyAttendance: 0, // Will be calculated from actual data
+      noShowRate: 8.2,
+      popularTimeSlots,
+      revenue: {
+        monthly: 0,
+        yearly: 0,
+        breakdown: []
+      },
+      peakHours: analytics.map((row: any) => ({
+        hour: parseInt(row.time.split(':')[0]),
+        utilization: row.utilization || 0
+      })),
+      membershipDistribution: [],
+      waitlistStats: { averageWaitTime: 0, totalWaitlisted: 0 },
+      achievementStats: { mostEarned: '', totalUnlocked: 0 },
+      feedbackSummary: { averageRating: 0, openTickets: 0 }
+    }
+  }
+
+  getInstance() {
+    return this
+  }
+
+  close() {
+    this.db.close()
+  }
+}
+
+// Singleton instance
+let instance: SQLiteDatabase | null = null
+
+export function getDatabase(): SQLiteDatabase {
+  if (!instance) {
+    instance = new SQLiteDatabase()
+  }
+  return instance
+}
+
+export default getDatabase 
