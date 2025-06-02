@@ -29,7 +29,7 @@ import { NotificationsPanel } from "@/components/notifications-panel"
 import { AchievementsPanel } from "@/components/achievements-panel"
 
 export default function DashboardPage() {
-  const { user, logout } = useAuth()
+  const { user, logout, isLoading: authLoading } = useAuth()
   const router = useRouter()
   const [stats, setStats] = useState({
     totalBookings: 0,
@@ -38,17 +38,21 @@ export default function DashboardPage() {
     weeklyWorkouts: 0
   })
   const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([])
+  const [allBookings, setAllBookings] = useState<Booking[]>([])
   const [recentAchievements, setRecentAchievements] = useState<UserAchievement[]>([])
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    // Don't redirect while auth is still loading
+    if (authLoading) return
+    
     if (!user) {
       router.push("/auth/login")
       return
     }
     fetchDashboardData()
-  }, [user, router])
+  }, [user, router, authLoading])
 
   const fetchDashboardData = async () => {
     try {
@@ -59,18 +63,29 @@ export default function DashboardPage() {
       }
 
       // Fetch bookings
-      const bookingsResponse = await fetch("/api/bookings/user", { headers })
+      const bookingsResponse = await fetch("/api/bookings/user", { 
+        headers,
+        credentials: 'include' // Include cookies for session authentication
+      })
+      
       if (bookingsResponse.ok) {
         const bookingsData = await bookingsResponse.json()
+        
+        // Store all bookings
+        setAllBookings(bookingsData)
+        
         const upcoming = bookingsData
-          .filter((booking: Booking) => 
-            new Date(booking.session.date) >= new Date() && 
-            booking.status === "confirmed"
-          )
+          .filter((booking: Booking) => {
+            const sessionDate = new Date(booking.session.date)
+            const today = new Date()
+            const isUpcoming = sessionDate >= today && booking.status === "confirmed"
+            return isUpcoming
+          })
           .sort((a: Booking, b: Booking) => 
             new Date(a.session.date).getTime() - new Date(b.session.date).getTime()
           )
           .slice(0, 3)
+        
         setUpcomingBookings(upcoming)
         
         // Calculate stats from real data
@@ -87,17 +102,25 @@ export default function DashboardPage() {
           totalBookings: bookingsData.length,
           weeklyWorkouts: thisWeekBookings.length
         }))
+      } else {
+        console.error('Error fetching bookings:', bookingsResponse.status)
       }
 
       // Fetch user-specific achievements
-      const achievementsResponse = await fetch(`/api/achievements?userId=${user?.id}`, { headers })
+      const achievementsResponse = await fetch(`/api/achievements?userId=${user?.id}`, { 
+        headers,
+        credentials: 'include'
+      })
       if (achievementsResponse.ok) {
         const achievementsData = await achievementsResponse.json()
         setRecentAchievements(achievementsData.slice(0, 3))
       }
 
       // Fetch user-specific notifications
-      const notificationsResponse = await fetch(`/api/notifications?userId=${user?.id}`, { headers })
+      const notificationsResponse = await fetch(`/api/notifications?userId=${user?.id}`, { 
+        headers,
+        credentials: 'include'
+      })
       if (notificationsResponse.ok) {
         const notificationsData = await notificationsResponse.json()
         setNotifications(notificationsData.slice(0, 5))
@@ -106,7 +129,10 @@ export default function DashboardPage() {
       // Get user stats from database or calculate from bookings
       if (user?.id) {
         try {
-          const userStatsResponse = await fetch(`/api/user-stats?userId=${user.id}`, { headers })
+          const userStatsResponse = await fetch(`/api/user-stats?userId=${user.id}`, { 
+            headers,
+            credentials: 'include'
+          })
           if (userStatsResponse.ok) {
             const userStats = await userStatsResponse.json()
             setStats(prev => ({
@@ -132,6 +158,18 @@ export default function DashboardPage() {
     const ampm = hour >= 12 ? 'PM' : 'AM'
     const hour12 = hour % 12 || 12
     return `${hour12}:${minutes} ${ampm}`
+  }
+
+  // Show loading screen while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-amber-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-blue-600 font-medium">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -386,16 +424,159 @@ export default function DashboardPage() {
           <TabsContent value="book">
             <Card className="bg-white shadow-lg border border-blue-100">
               <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-lg">
-                <CardTitle>Book a Session</CardTitle>
-                <CardDescription className="text-blue-100">Schedule your next workout</CardDescription>
+                <CardTitle className="flex items-center">
+                  <Calendar className="h-5 w-5 mr-2" />
+                  Your Booked Sessions
+                </CardTitle>
+                <CardDescription className="text-blue-100">View and manage your gym session bookings</CardDescription>
               </CardHeader>
               <CardContent className="p-6">
-                <Button 
-                  onClick={() => router.push("/dashboard/book")}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12"
-                >
-                  Go to Booking Page
-                </Button>
+                <div className="mb-6">
+                  <Button 
+                    onClick={() => router.push("/dashboard/book")}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12 font-semibold"
+                  >
+                    <Calendar className="h-5 w-5 mr-2" />
+                    Book New Session
+                  </Button>
+                </div>
+
+                {isLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-blue-600">Loading your bookings...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Upcoming Bookings */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-blue-900 mb-4 flex items-center">
+                        <Clock className="h-5 w-5 mr-2" />
+                        Upcoming Sessions
+                      </h3>
+                      {upcomingBookings.length === 0 ? (
+                        <div className="text-center py-8 bg-blue-50 rounded-lg border border-blue-200">
+                          <Calendar className="h-12 w-12 text-blue-300 mx-auto mb-4" />
+                          <p className="text-blue-600 font-medium">No upcoming sessions</p>
+                          <p className="text-blue-500 text-sm mt-1">Book your next workout session!</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {upcomingBookings.map((booking) => (
+                            <div key={booking.id} className="p-4 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 transition-colors">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center">
+                                    <Dumbbell className="h-6 w-6 text-white" />
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-green-900 text-lg">
+                                      {new Date(booking.session.date).toLocaleDateString("en-AU", {
+                                        weekday: "long",
+                                        year: "numeric",
+                                        month: "long",
+                                        day: "numeric",
+                                      })}
+                                    </p>
+                                    <p className="text-green-700 font-medium">
+                                      {formatTime(booking.session.startTime)} - {formatTime(booking.session.endTime)}
+                                    </p>
+                                    <p className="text-green-600 text-sm">
+                                      🎯 {booking.session.description || 'Open gym access'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <Badge className="bg-green-100 text-green-800 border-green-300">
+                                  {booking.status}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Past Bookings */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-700 mb-4 flex items-center">
+                        <Trophy className="h-5 w-5 mr-2" />
+                        Recent Sessions
+                      </h3>
+                      {(() => {
+                        // Filter for past bookings (completed, cancelled, or past date)
+                        const pastBookings = allBookings
+                          .filter((booking: Booking) => {
+                            const sessionDate = new Date(booking.session.date)
+                            const today = new Date()
+                            return sessionDate < today || booking.status !== "confirmed"
+                          })
+                          .sort((a: Booking, b: Booking) => 
+                            new Date(b.session.date).getTime() - new Date(a.session.date).getTime()
+                          )
+                          .slice(0, 5); // Show only 5 most recent
+                        
+                        return pastBookings.length === 0 ? (
+                          <div className="text-center py-6 bg-gray-50 rounded-lg border border-gray-200">
+                            <Clock className="h-10 w-10 text-gray-400 mx-auto mb-3" />
+                            <p className="text-gray-600 font-medium">No past sessions yet</p>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => router.push("/dashboard/history")}
+                              className="mt-3 border-gray-300 text-gray-600 hover:bg-gray-100"
+                            >
+                              View Full History
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="space-y-3 max-h-64 overflow-y-auto">
+                            {pastBookings.map((booking) => (
+                              <div key={booking.id} className="p-4 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-10 h-10 bg-gray-500 rounded-lg flex items-center justify-center">
+                                      <Dumbbell className="h-5 w-5 text-white" />
+                                    </div>
+                                    <div>
+                                      <p className="font-semibold text-gray-900">
+                                        {new Date(booking.session.date).toLocaleDateString("en-AU", {
+                                          weekday: "short",
+                                          month: "short",
+                                          day: "numeric",
+                                        })}
+                                      </p>
+                                      <p className="text-gray-600 text-sm">
+                                        {formatTime(booking.session.startTime)} - {formatTime(booking.session.endTime)}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <Badge className={
+                                    booking.status === 'confirmed' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                                    booking.status === 'completed' ? 'bg-green-100 text-green-800 border-green-300' :
+                                    booking.status === 'cancelled' ? 'bg-orange-100 text-orange-800 border-orange-300' :
+                                    'bg-gray-100 text-gray-800 border-gray-300'
+                                  }>
+                                    {booking.status}
+                                  </Badge>
+                                </div>
+                              </div>
+                            ))}
+                            <div className="pt-3 border-t border-gray-200">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => router.push("/dashboard/history")}
+                                className="w-full border-gray-300 text-gray-600 hover:bg-gray-100"
+                              >
+                                View Full History
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -411,16 +592,201 @@ export default function DashboardPage() {
           <TabsContent value="history">
             <Card className="bg-white shadow-lg border border-blue-100">
               <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-lg">
-                <CardTitle>Booking History</CardTitle>
-                <CardDescription className="text-blue-100">View your complete workout history</CardDescription>
+                <CardTitle className="flex items-center">
+                  <TrendingUp className="h-5 w-5 mr-2" />
+                  Workout History & Analytics
+                </CardTitle>
+                <CardDescription className="text-blue-100">Your fitness journey insights and progress tracking</CardDescription>
               </CardHeader>
               <CardContent className="p-6">
-                <Button 
-                  onClick={() => router.push("/dashboard/history")}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white h-12"
-                >
-                  View Full History
-                </Button>
+                {isLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-blue-600">Loading history...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Quick Stats Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <Target className="h-6 w-6 text-blue-600 mx-auto mb-2" />
+                        <p className="text-2xl font-bold text-blue-900">{allBookings.length}</p>
+                        <p className="text-blue-700 text-sm font-medium">Total Sessions</p>
+                      </div>
+                      <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+                        <Trophy className="h-6 w-6 text-green-600 mx-auto mb-2" />
+                        <p className="text-2xl font-bold text-green-900">
+                          {allBookings.filter(b => b.status === 'completed' || (b.status === 'confirmed' && new Date(b.session.date) < new Date())).length}
+                        </p>
+                        <p className="text-green-700 text-sm font-medium">Completed</p>
+                      </div>
+                      <div className="text-center p-4 bg-orange-50 rounded-lg border border-orange-200">
+                        <Calendar className="h-6 w-6 text-orange-600 mx-auto mb-2" />
+                        <p className="text-2xl font-bold text-orange-900">
+                          {allBookings.filter(b => b.status === 'cancelled').length}
+                        </p>
+                        <p className="text-orange-700 text-sm font-medium">Cancelled</p>
+                      </div>
+                      <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-200">
+                        <Flame className="h-6 w-6 text-purple-600 mx-auto mb-2" />
+                        <p className="text-2xl font-bold text-purple-900">{stats.currentStreak}</p>
+                        <p className="text-purple-700 text-sm font-medium">Day Streak</p>
+                      </div>
+                    </div>
+
+                    {/* Recent Activity */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                        <Clock className="h-5 w-5 mr-2" />
+                        Recent Activity
+                      </h3>
+                      {allBookings.length === 0 ? (
+                        <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                          <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+                          <p className="text-gray-600 font-medium">No workout history yet</p>
+                          <p className="text-gray-500 text-sm mt-1">Book your first session to get started!</p>
+                          <Button 
+                            onClick={() => router.push("/dashboard/book")}
+                            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white"
+                          >
+                            Book Session
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-3 max-h-64 overflow-y-auto">
+                          {allBookings
+                            .sort((a, b) => new Date(b.session.date).getTime() - new Date(a.session.date).getTime())
+                            .slice(0, 10)
+                            .map((booking) => (
+                              <div key={booking.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 transition-colors">
+                                <div className="flex items-center space-x-3">
+                                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                                    booking.status === 'completed' || (booking.status === 'confirmed' && new Date(booking.session.date) < new Date()) 
+                                      ? 'bg-green-500' 
+                                      : booking.status === 'cancelled' 
+                                      ? 'bg-orange-500' 
+                                      : 'bg-blue-500'
+                                  }`}>
+                                    <Dumbbell className="h-5 w-5 text-white" />
+                                  </div>
+                                  <div>
+                                    <p className="font-semibold text-gray-900">
+                                      {new Date(booking.session.date).toLocaleDateString("en-AU", {
+                                        weekday: "short",
+                                        month: "short",
+                                        day: "numeric",
+                                      })}
+                                    </p>
+                                    <p className="text-gray-600 text-sm">
+                                      {formatTime(booking.session.startTime)} - {formatTime(booking.session.endTime)}
+                                    </p>
+                                  </div>
+                                </div>
+                                <Badge className={
+                                  booking.status === 'completed' || (booking.status === 'confirmed' && new Date(booking.session.date) < new Date())
+                                    ? 'bg-green-100 text-green-800 border-green-300' 
+                                    : booking.status === 'cancelled' 
+                                    ? 'bg-orange-100 text-orange-800 border-orange-300'
+                                    : booking.status === 'confirmed'
+                                    ? 'bg-blue-100 text-blue-800 border-blue-300'
+                                    : 'bg-gray-100 text-gray-800 border-gray-300'
+                                }>
+                                  {booking.status === 'confirmed' && new Date(booking.session.date) < new Date() ? 'Completed' : booking.status}
+                                </Badge>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Weekly Pattern */}
+                    {allBookings.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                          <TrendingUp className="h-5 w-5 mr-2" />
+                          Weekly Workout Pattern
+                        </h3>
+                        <div className="grid grid-cols-7 gap-2">
+                          {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day, index) => {
+                            const dayBookings = allBookings.filter(booking => {
+                              const bookingDay = new Date(booking.session.date).getDay()
+                              return bookingDay === (index + 1) % 7 // Adjust for Monday start
+                            })
+                            const intensity = Math.min(dayBookings.length / Math.max(allBookings.length / 7, 1), 1)
+                            
+                            return (
+                              <div key={day} className="text-center">
+                                <p className="text-xs font-medium text-gray-600 mb-2">{day}</p>
+                                <div 
+                                  className={`h-16 rounded-lg border-2 flex items-end justify-center pb-2 ${
+                                    intensity > 0.7 ? 'bg-blue-500 border-blue-600' :
+                                    intensity > 0.4 ? 'bg-blue-300 border-blue-400' :
+                                    intensity > 0.1 ? 'bg-blue-200 border-blue-300' :
+                                    'bg-gray-100 border-gray-200'
+                                  }`}
+                                >
+                                  <span className={`text-xs font-bold ${
+                                    intensity > 0.4 ? 'text-white' : 'text-gray-600'
+                                  }`}>
+                                    {dayBookings.length}
+                                  </span>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2 text-center">
+                          Workout frequency by day of week (total sessions)
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Time Preferences */}
+                    {allBookings.length > 0 && (
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                          <Clock className="h-5 w-5 mr-2" />
+                          Preferred Workout Times
+                        </h3>
+                        <div className="grid grid-cols-4 gap-3">
+                          {[
+                            { label: 'Morning', range: '6-10 AM', hours: [6, 7, 8, 9] },
+                            { label: 'Midday', range: '10-2 PM', hours: [10, 11, 12, 13] },
+                            { label: 'Afternoon', range: '2-6 PM', hours: [14, 15, 16, 17] },
+                            { label: 'Evening', range: '6-10 PM', hours: [18, 19, 20, 21] }
+                          ].map(timeSlot => {
+                            const count = allBookings.filter(booking => {
+                              const hour = parseInt(booking.session.startTime.split(':')[0])
+                              return timeSlot.hours.includes(hour)
+                            }).length
+                            const percentage = allBookings.length > 0 ? (count / allBookings.length * 100) : 0
+                            
+                            return (
+                              <div key={timeSlot.label} className="text-center p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                <p className="font-semibold text-blue-900">{timeSlot.label}</p>
+                                <p className="text-xs text-blue-600 mb-2">{timeSlot.range}</p>
+                                <p className="text-lg font-bold text-blue-800">{count}</p>
+                                <p className="text-xs text-blue-600">{Math.round(percentage)}%</p>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* View Full History Button */}
+                    <div className="pt-4 border-t border-gray-200">
+                      <Button 
+                        onClick={() => router.push("/dashboard/history")}
+                        variant="outline"
+                        className="w-full border-blue-300 text-blue-600 hover:bg-blue-50 font-medium"
+                      >
+                        <Calendar className="h-4 w-4 mr-2" />
+                        View Complete History & Detailed Analytics
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

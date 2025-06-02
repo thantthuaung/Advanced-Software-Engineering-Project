@@ -12,7 +12,7 @@ import { ArrowLeft, Calendar, Clock, Users, CheckCircle, AlertCircle, Graduation
 import type { GymSession } from "@/lib/types"
 
 export default function BookSessionPage() {
-  const { user, logout } = useAuth()
+  const { user, logout, isLoading: authLoading } = useAuth()
   const router = useRouter()
   const [sessions, setSessions] = useState<GymSession[]>([])
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -32,20 +32,31 @@ export default function BookSessionPage() {
   const [alert, setAlert] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   useEffect(() => {
+    // Don't redirect while auth is still loading
+    if (authLoading) return
+    
     if (!user) {
       router.push("/auth/login")
       return
     }
     fetchData()
-  }, [user, router, selectedDate])
+  }, [user, router, selectedDate, authLoading])
 
   const fetchData = async () => {
     try {
+      console.log('Fetching sessions for date:', selectedDate)
       const sessionsResponse = await fetch(`/api/sessions?date=${selectedDate}`)
+      console.log('Response status:', sessionsResponse.status, sessionsResponse.ok)
 
       if (sessionsResponse.ok) {
         const sessionsData = await sessionsResponse.json()
+        console.log('Sessions data received:', sessionsData)
+        console.log('Number of sessions:', sessionsData.length)
         setSessions(sessionsData)
+      } else {
+        console.error('Sessions response not ok:', sessionsResponse.status)
+        const errorText = await sessionsResponse.text()
+        console.error('Error response:', errorText)
       }
     } catch (error) {
       console.error("Error fetching data:", error)
@@ -66,6 +77,7 @@ export default function BookSessionPage() {
       const response = await fetch('/api/bookings', {
         method: 'POST',
         headers,
+        credentials: 'include',
         body: JSON.stringify({ sessionId, userId: user?.id })
       })
 
@@ -95,6 +107,7 @@ export default function BookSessionPage() {
       const response = await fetch('/api/waitlist', {
         method: 'POST',
         headers,
+        credentials: 'include',
         body: JSON.stringify({ sessionId, userId: user?.id })
       })
 
@@ -126,9 +139,26 @@ export default function BookSessionPage() {
 
   const getAvailabilityStatus = (session: GymSession) => {
     const available = session.capacity - session.currentBookings
-    if (available > 5) return { status: 'available', color: 'text-green-600', icon: CheckCircle }
-    if (available > 0) return { status: 'limited', color: 'text-amber-600', icon: AlertCircle }
-    return { status: 'full', color: 'text-red-600', icon: AlertCircle }
+    if (available > 3) return { status: 'available', color: 'text-green-600', icon: CheckCircle, text: `${available} spots left` }
+    if (available > 0) return { status: 'limited', color: 'text-amber-600', icon: AlertCircle, text: `Only ${available} spot${available > 1 ? 's' : ''} left!` }
+    return { status: 'full', color: 'text-red-600', icon: AlertCircle, text: 'Session Full' }
+  }
+
+  const isSessionBookable = (session: GymSession) => {
+    const available = session.capacity - session.currentBookings
+    return available > 0
+  }
+
+  // Show loading screen while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-amber-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-blue-600 font-medium">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -281,7 +311,7 @@ export default function BookSessionPage() {
                               <div className="flex items-center">
                                 <StatusIcon className={`h-4 w-4 mr-2 ${availability.color}`} />
                                 <span className={`font-semibold ${availability.color}`}>
-                                  {available > 0 ? `${available} spots available` : 'Full'}
+                                  {availability.text}
                                 </span>
                               </div>
                               <span className="text-blue-600 font-medium">
@@ -296,7 +326,7 @@ export default function BookSessionPage() {
                           </div>
 
                           <div className="mt-4">
-                            {available > 0 ? (
+                            {isSessionBookable(session) ? (
                               <Button
                                 onClick={() => handleBookSession(session.id)}
                                 disabled={bookingLoading === session.id}

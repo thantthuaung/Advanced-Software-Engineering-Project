@@ -46,11 +46,134 @@ class SQLiteDatabase {
   }
 
   private initializeSchema() {
-    const schemaPath = path.join(process.cwd(), 'lib', 'database-setup.sql')
-    const schema = fs.readFileSync(schemaPath, 'utf8')
+    console.log('Initializing database schema...')
     
-    // Execute schema creation
-    this.db.exec(schema)
+    // Create main tables
+    this.db.exec(`
+      -- Users table
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        first_name TEXT NOT NULL,
+        last_name TEXT NOT NULL,
+        student_id TEXT UNIQUE NOT NULL,
+        role TEXT DEFAULT 'student' CHECK (role IN ('student', 'admin')),
+        membership_type TEXT DEFAULT 'basic' CHECK (membership_type IN ('basic', 'premium', '1-trimester', '3-trimester', '1-year')),
+        status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'suspended', 'expired')),
+        phone TEXT,
+        emergency_contact_name TEXT,
+        emergency_contact_phone TEXT,
+        emergency_contact_relationship TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        approval_date DATETIME,
+        expiry_date DATE,
+        points INTEGER DEFAULT 0,
+        streak INTEGER DEFAULT 0,
+        total_workouts INTEGER DEFAULT 0,
+        payment_status TEXT CHECK (payment_status IN ('pending', 'paid', 'failed', 'refunded')),
+        payment_method TEXT,
+        payment_amount REAL,
+        payment_date DATETIME,
+        payment_reference TEXT,
+        billing_address TEXT
+      );
+
+      -- Gym sessions table
+      CREATE TABLE IF NOT EXISTS gym_sessions (
+        id TEXT PRIMARY KEY,
+        date DATE NOT NULL,
+        start_time TIME NOT NULL,
+        end_time TIME NOT NULL,
+        capacity INTEGER NOT NULL DEFAULT 10,
+        current_bookings INTEGER DEFAULT 0,
+        is_active BOOLEAN DEFAULT true,
+        type TEXT DEFAULT 'general',
+        instructor TEXT,
+        description TEXT,
+        difficulty TEXT,
+        waitlist_count INTEGER DEFAULT 0,
+        price REAL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+
+      -- Bookings table
+      CREATE TABLE IF NOT EXISTS bookings (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        session_id TEXT NOT NULL,
+        status TEXT DEFAULT 'confirmed' CHECK (status IN ('confirmed', 'cancelled', 'no-show', 'completed')),
+        booking_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+        check_in_time DATETIME,
+        check_out_time DATETIME,
+        notes TEXT,
+        rating INTEGER CHECK (rating >= 1 AND rating <= 5),
+        feedback TEXT,
+        is_recurring BOOLEAN DEFAULT false,
+        recurring_id TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+        FOREIGN KEY (session_id) REFERENCES gym_sessions (id) ON DELETE CASCADE
+      );
+
+      -- User achievements table
+      CREATE TABLE IF NOT EXISTS user_achievements (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        achievement_id TEXT NOT NULL,
+        earned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        points INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+        UNIQUE(user_id, achievement_id)
+      );
+
+      -- Notifications table
+      CREATE TABLE IF NOT EXISTS notifications (
+        id TEXT PRIMARY KEY,
+        user_id TEXT, -- NULL for global notifications
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        type TEXT DEFAULT 'info' CHECK (type IN ('info', 'success', 'warning', 'error', 'announcement')),
+        priority TEXT DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'urgent')),
+        action_url TEXT,
+        is_read BOOLEAN DEFAULT false,
+        read_at DATETIME,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      );
+
+      -- Billing transactions table
+      CREATE TABLE IF NOT EXISTS billing_transactions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        amount REAL NOT NULL,
+        currency TEXT DEFAULT 'SGD',
+        description TEXT,
+        transaction_type TEXT CHECK (transaction_type IN ('payment', 'refund', 'adjustment')),
+        status TEXT CHECK (status IN ('pending', 'completed', 'failed', 'cancelled')),
+        payment_method TEXT,
+        payment_reference TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        completed_at DATETIME,
+        FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      );
+
+      -- Create indexes for better performance
+      CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+      CREATE INDEX IF NOT EXISTS idx_users_student_id ON users(student_id);
+      CREATE INDEX IF NOT EXISTS idx_sessions_date ON gym_sessions(date);
+      CREATE INDEX IF NOT EXISTS idx_bookings_user_id ON bookings(user_id);
+      CREATE INDEX IF NOT EXISTS idx_bookings_session_id ON bookings(session_id);
+      CREATE INDEX IF NOT EXISTS idx_achievements_user_id ON user_achievements(user_id);
+      CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+      CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
+    `)
+    
+    console.log('✅ Database schema initialized')
   }
 
   private async initializeProductionData() {
@@ -107,8 +230,124 @@ class SQLiteDatabase {
         // Initialize recurring gym sessions for the next 30 days
         this.initializeProductionSessions()
         
+        // Create demo student accounts
+        await this.createDemoStudents()
+        
       } catch (error) {
         console.error('❌ Error creating initial admin:', error)
+      }
+    }
+  }
+
+  private async createDemoStudents() {
+    // Check if demo students already exist
+    const demoCount = this.db.prepare('SELECT COUNT(*) as count FROM users WHERE email = ?').get('demo@my.jcu.edu.au') as { count: number }
+    
+    if (demoCount.count === 0) {
+      console.log('Creating demo student accounts...')
+      
+      try {
+        const demoPassword = await bcrypt.hash('demo123', 12)
+        const insertUser = this.db.prepare(`
+          INSERT INTO users (
+            id, email, password_hash, first_name, last_name, student_id, role, membership_type, status,
+            phone, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship,
+            created_at, approval_date, expiry_date, points, streak, total_workouts,
+            payment_status, payment_method, payment_amount, payment_date, payment_reference, billing_address
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `)
+
+        // Demo Student 1 - Basic account
+        insertUser.run(
+          randomUUID(),
+          'demo@my.jcu.edu.au',
+          demoPassword,
+          'Demo',
+          'Student',
+          'JC142001',
+          'student',
+          '1-trimester',
+          'approved',
+          '+65 91234567',
+          'Demo Parent',
+          '+65 98765432',
+          'Parent',
+          new Date().toISOString(),
+          new Date().toISOString(),
+          new Date(Date.now() + 120 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 4 months
+          100,
+          5,
+          8,
+          'paid',
+          'credit_card',
+          150,
+          new Date().toISOString(),
+          'PAY_DEMO001',
+          '123 Demo Street, Singapore'
+        )
+
+        // Demo Student 2 - Premium account
+        insertUser.run(
+          randomUUID(),
+          'john@my.jcu.edu.au',
+          demoPassword,
+          'John',
+          'Doe',
+          'JC142002',
+          'student',
+          'premium',
+          'approved',
+          '+65 87654321',
+          'Jane Doe',
+          '+65 98765431',
+          'Mother',
+          new Date().toISOString(),
+          new Date().toISOString(),
+          new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 1 year
+          250,
+          12,
+          25,
+          'paid',
+          'credit_card',
+          800,
+          new Date().toISOString(),
+          'PAY_DEMO002',
+          '456 University Ave, Singapore'
+        )
+
+        // Demo Student 3 - Staff member
+        insertUser.run(
+          randomUUID(),
+          'sarah@my.jcu.edu.au',
+          demoPassword,
+          'Sarah',
+          'Wilson',
+          'JC900001',
+          'student',
+          '1-year',
+          'approved',
+          '+65 12345678',
+          'Emergency Contact',
+          '+65 87654321',
+          'Colleague',
+          new Date().toISOString(),
+          new Date().toISOString(),
+          new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 1 year
+          75,
+          3,
+          12,
+          'paid',
+          'payroll_deduction',
+          500,
+          new Date().toISOString(),
+          'PAY_DEMO003',
+          'JCU Campus, Singapore'
+        )
+
+        console.log('✅ Demo student accounts created')
+        
+      } catch (error) {
+        console.error('❌ Error creating demo students:', error)
       }
     }
   }
@@ -128,14 +367,14 @@ class SQLiteDatabase {
       `)
 
       const timeSlots = [
-        { start: "06:00", end: "08:00", capacity: 25 },
-        { start: "08:00", end: "10:00", capacity: 30 },
-        { start: "10:00", end: "12:00", capacity: 25 },
-        { start: "12:00", end: "14:00", capacity: 35 },
-        { start: "14:00", end: "16:00", capacity: 30 },
-        { start: "16:00", end: "18:00", capacity: 40 },
-        { start: "18:00", end: "20:00", capacity: 45 },
-        { start: "20:00", end: "22:00", capacity: 25 }
+        { start: "06:00", end: "08:00", capacity: 10 },
+        { start: "08:00", end: "10:00", capacity: 10 },
+        { start: "10:00", end: "12:00", capacity: 10 },
+        { start: "12:00", end: "14:00", capacity: 10 },
+        { start: "14:00", end: "16:00", capacity: 10 },
+        { start: "16:00", end: "18:00", capacity: 10 },
+        { start: "18:00", end: "20:00", capacity: 10 },
+        { start: "20:00", end: "22:00", capacity: 10 }
       ]
 
       // Create sessions for the next 30 days (Monday to Friday only)
@@ -172,7 +411,7 @@ class SQLiteDatabase {
         })
       }
       
-      console.log('✅ Production gym sessions created')
+      console.log('✅ Production gym sessions created with 10-person capacity')
     }
   }
 
@@ -185,6 +424,11 @@ class SQLiteDatabase {
   getUserById(id: string) {
     const stmt = this.db.prepare('SELECT * FROM users WHERE id = ?')
     return stmt.get(id) as User | undefined
+  }
+
+  getUserByStudentId(studentId: string) {
+    const stmt = this.db.prepare('SELECT * FROM users WHERE student_id = ?')
+    return stmt.get(studentId) as User | undefined
   }
 
   getAllUsers() {

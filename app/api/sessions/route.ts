@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const date = searchParams.get("date")
+    const showAll = searchParams.get("showAll") === "true" // For admin use
 
     if (!date) {
       return NextResponse.json(
@@ -48,7 +49,12 @@ export async function GET(request: NextRequest) {
     const dbSessions = db.getSessionsByDate(date)
     
     // Convert to API format
-    const sessions = dbSessions.map(formatSessionForAPI)
+    let sessions = dbSessions.map(formatSessionForAPI)
+    
+    // Filter out full sessions for students (unless showAll is true for admin)
+    if (!showAll) {
+      sessions = sessions.filter(session => session.availableSpots > 0)
+    }
     
     return NextResponse.json(sessions)
   } catch (error) {

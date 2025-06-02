@@ -100,14 +100,14 @@ export async function POST(request: NextRequest) {
         sampleDates
       })
     } else {
-      return NextResponse.json({
-        success: true,
+    return NextResponse.json({
+      success: true,
         message: `Sessions already exist for today (${todayCount.count} sessions found)`,
         sessionsCount: sessionCount.count,
         todaySessionsCount: todayCount.count,
         date: today,
         sampleDates
-      })
+    })
     }
   } catch (error) {
     console.error("Error initializing sessions:", error)

@@ -5,27 +5,36 @@ import { getDatabase } from "@/lib/database"
 
 export async function POST(request: NextRequest) {
   try {
+    const body = await request.json()
+
     const {
-      firstName,
-      lastName,
       email,
       password,
+      firstName,
+      lastName,
       studentId,
       membershipType,
-      phone,
-      emergencyContact,
       paymentMethod,
       cardNumber,
       expiryDate,
       cvv,
-      cardHolder,
+      phone,
+      emergencyContact,
       billingAddress
-    } = await request.json()
+    } = body
 
-    // Validation
-    if (!firstName || !lastName || !email || !password || !studentId || !membershipType) {
+    // Validate required fields
+    if (!email || !password || !firstName || !lastName || !studentId || !membershipType || !paymentMethod) {
       return NextResponse.json(
-        { error: "All required fields must be filled" },
+        { error: "All required fields must be provided" },
+        { status: 400 }
+      )
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      return NextResponse.json(
+        { error: "Password must be at least 6 characters long" },
         { status: 400 }
       )
     }
@@ -114,11 +123,20 @@ export async function POST(request: NextRequest) {
 
     const db = getDatabase()
 
-    // Check if user already exists
-    const existingUser = db.getUserByEmail(email)
-    if (existingUser) {
+    // Check if user already exists by email
+    const existingUserByEmail = db.getUserByEmail(email)
+    if (existingUserByEmail) {
       return NextResponse.json(
-        { error: "An account with this email already exists" },
+        { error: "An account with this email already exists. Please use a different email or try logging in." },
+        { status: 400 }
+      )
+    }
+
+    // Check if student ID already exists
+    const existingUserByStudentId = db.getUserByStudentId(cleanStudentId)
+    if (existingUserByStudentId) {
+      return NextResponse.json(
+        { error: "This student ID is already registered. Please check your student ID or contact support if you believe this is an error." },
         { status: 400 }
       )
     }
@@ -151,57 +169,85 @@ export async function POST(request: NextRequest) {
 
     const userId = randomUUID()
 
-    // Create user account (pending status until payment is verified)
-    db.createUser({
-      id: userId,
-      email,
-      passwordHash,
-      firstName,
-      lastName,
-      studentId: studentId.trim(), // Preserve original case but trim whitespace
-      role: 'student',
-      membershipType,
-      status: 'pending', // Will be approved after payment verification
-      phone: phone || '', // Handle missing phone
-      emergencyContact: emergencyContact ? {
-        name: emergencyContact.name,
-        phone: emergencyContact.phone,
-        relationship: emergencyContact.relationship
-      } : undefined,
-      expiryDate: expiryDateCalc.toISOString().split('T')[0],
-      paymentStatus: 'pending',
-      paymentMethod,
-      paymentAmount: pricing.amount,
-      paymentReference,
-      billingAddress: billingAddress || ''
-    })
+    try {
+      // Create user account (pending status until payment is verified)
+      db.createUser({
+        id: userId,
+        email,
+        passwordHash,
+        firstName,
+        lastName,
+        studentId: cleanStudentId, // Use cleaned student ID
+        role: 'student',
+        membershipType,
+        status: 'pending', // Will be approved after payment verification
+        phone: phone || '', // Handle missing phone
+        emergencyContact: emergencyContact ? {
+          name: emergencyContact.name,
+          phone: emergencyContact.phone,
+          relationship: emergencyContact.relationship
+        } : undefined,
+        expiryDate: expiryDateCalc.toISOString().split('T')[0],
+        paymentStatus: 'pending',
+        paymentMethod,
+        paymentAmount: pricing.amount,
+        paymentReference,
+        billingAddress: billingAddress || ''
+      })
 
-    // Create billing transaction record
-    const transactionId = randomUUID()
-    db.createBillingTransaction({
-      id: transactionId,
-      userId: userId,
-      amount: pricing.amount,
-      paymentMethod,
-      paymentReference,
-      transactionType: 'payment',
-      description: `${membershipType} membership registration`,
-      status: 'pending' // Will be updated when payment is confirmed
-    })
+      // Create billing transaction record
+      const transactionId = randomUUID()
+      db.createBillingTransaction({
+        id: transactionId,
+        userId: userId,
+        amount: pricing.amount,
+        paymentMethod,
+        paymentReference,
+        transactionType: 'payment',
+        description: `${membershipType} membership registration`,
+        status: 'pending' // Will be updated when payment is confirmed
+      })
 
-    return NextResponse.json({
-      success: true,
-      message: "Registration submitted successfully! Your account is pending approval and payment verification.",
-      userId: userId,
-      paymentReference: paymentReference,
-      amount: pricing.amount,
-      membershipType: membershipType
-    })
+      return NextResponse.json({
+        success: true,
+        message: "Registration submitted successfully! Your account is pending approval and payment verification.",
+        userId: userId,
+        paymentReference: paymentReference,
+        amount: pricing.amount,
+        membershipType: membershipType
+      })
+
+    } catch (dbError: any) {
+      console.error("Database error during user creation:", dbError)
+      
+      // Handle specific SQLite constraint errors
+      if (dbError.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+        if (dbError.message.includes('users.email')) {
+          return NextResponse.json(
+            { error: "An account with this email already exists. Please use a different email or try logging in." },
+            { status: 400 }
+          )
+        } else if (dbError.message.includes('users.student_id')) {
+          return NextResponse.json(
+            { error: "This student ID is already registered. Please check your student ID or contact support if you believe this is an error." },
+            { status: 400 }
+          )
+        } else {
+          return NextResponse.json(
+            { error: "This information is already registered. Please check your details or contact support." },
+            { status: 400 }
+          )
+        }
+      }
+      
+      // Handle other database errors
+      throw dbError
+    }
 
   } catch (error) {
     console.error("Registration error:", error)
     return NextResponse.json(
-      { error: "An error occurred during registration" },
+      { error: "An error occurred during registration. Please try again." },
       { status: 500 }
     )
   }

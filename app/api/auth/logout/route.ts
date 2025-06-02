@@ -7,10 +7,22 @@ export async function POST(request: NextRequest) {
     // This endpoint serves as a confirmation that logout was successful
     // and could be extended to handle server-side session management if needed
     
-    return NextResponse.json({
+    // Create response confirming logout
+    const response = NextResponse.json({
       success: true,
       message: "Logged out successfully"
     })
+    
+    // Clear the HTTP-only session cookie
+    response.cookies.set('auth-token', '', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0, // Expire immediately
+      path: '/'
+    })
+    
+    return response
   } catch (error) {
     console.error("Logout error:", error)
     return NextResponse.json(

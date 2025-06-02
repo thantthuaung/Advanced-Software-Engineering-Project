@@ -10,18 +10,21 @@ import { ArrowLeft, Calendar, Clock, TrendingUp, Target, Trophy, GraduationCap, 
 import type { Booking } from "@/lib/types"
 
 export default function BookingHistoryPage() {
-  const { user, logout } = useAuth()
+  const { user, logout, isLoading: authLoading } = useAuth()
   const router = useRouter()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    // Don't redirect while auth is still loading
+    if (authLoading) return
+    
     if (!user) {
       router.push("/auth/login")
       return
     }
     fetchBookings()
-  }, [user, router])
+  }, [user, router, authLoading])
 
   const fetchBookings = async () => {
     try {
@@ -31,7 +34,10 @@ export default function BookingHistoryPage() {
         headers['Authorization'] = `Bearer ${token}`
       }
 
-      const response = await fetch("/api/bookings/user", { headers })
+      const response = await fetch("/api/bookings/user", { 
+        headers,
+        credentials: 'include' // Include cookies for session authentication
+      })
       if (response.ok) {
         const data = await response.json()
         setBookings(
@@ -77,6 +83,18 @@ export default function BookingHistoryPage() {
   const pastBookings = bookings.filter(
     (booking) => new Date(booking.session.date) < new Date() || booking.status !== "confirmed",
   )
+
+  // Show loading screen while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-amber-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-blue-600 font-medium">Loading...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-amber-50">

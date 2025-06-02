@@ -6,16 +6,28 @@ const JWT_SECRET = process.env.JWT_SECRET || "jcu-gym-secret-key-change-in-produ
 
 export async function GET(request: NextRequest) {
   try {
-    // Get user from JWT token
+    // Get user from JWT token (check both Authorization header and cookie)
     const authHeader = request.headers.get('Authorization')
-    let userId = null
+    const cookieToken = request.cookies.get('auth-token')?.value
     
+    let userId = null
+    let token = null
+    
+    // Try Authorization header first
     if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1]
+    }
+    // Fall back to cookie
+    else if (cookieToken) {
+      token = cookieToken
+    }
+    
+    if (token) {
       try {
-        const token = authHeader.split(' ')[1]
         const decoded = jwt.verify(token, JWT_SECRET) as any
         userId = decoded.userId
       } catch (error) {
+        console.log('JWT verification error:', error)
         // Try from query params as fallback
       }
     }

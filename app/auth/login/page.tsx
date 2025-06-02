@@ -26,25 +26,43 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const success = await login(email, password)
-      if (success) {
-        // Check user role from localStorage and redirect accordingly
-        const userStr = localStorage.getItem('user-data')
-        if (userStr) {
-          const user = JSON.parse(userStr)
-          if (user.role === 'admin') {
-            router.push("/admin")
-          } else {
-            router.push("/dashboard")
-          }
+      const result = await login(email, password)
+      
+      if (result.success) {
+        // Successful login - redirect based on user role
+        if (result.user?.role === 'admin') {
+          router.push("/admin/dashboard")
         } else {
           router.push("/dashboard")
         }
       } else {
-        setError("Invalid email or password")
+        // Handle different error statuses
+        switch (result.status) {
+          case 'pending':
+            // Redirect to pending approval page with user info
+            const userInfoQuery = encodeURIComponent(JSON.stringify(result.userInfo))
+            router.push(`/auth/pending?userInfo=${userInfoQuery}`)
+            break
+            
+          case 'suspended':
+            setError(`Account suspended: ${result.message} Please contact ${result.userInfo || 'support@fitness.jcu.edu.au'} for assistance.`)
+            break
+            
+          case 'expired':
+            setError(`Membership expired: ${result.message} Please contact support to renew your membership.`)
+            break
+            
+          case 'unknown':
+            setError(`Account issue: ${result.message} Please contact ${result.userInfo || 'support@fitness.jcu.edu.au'} for assistance.`)
+            break
+            
+          default:
+            setError(result.message || "Invalid email or password")
+        }
       }
     } catch (err) {
-      setError("An error occurred during login")
+      console.error('Login error:', err)
+      setError("An error occurred during login. Please try again.")
     } finally {
       setIsLoading(false)
     }

@@ -6,9 +6,17 @@ import { createContext, useContext, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import type { User } from "@/lib/types"
 
+interface LoginResult {
+  success: boolean
+  status?: string
+  message?: string
+  userInfo?: any
+  user?: User
+}
+
 interface AuthContextType {
   user: User | null
-  login: (email: string, password: string) => Promise<boolean>
+  login: (email: string, password: string) => Promise<LoginResult>
   logout: () => Promise<void>
   isLoading: boolean
 }
@@ -26,11 +34,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (token && userData) {
       setUser(JSON.parse(userData))
+    } else {
+      // If no localStorage data, check if user is authenticated via cookie
+      checkCookieAuth()
     }
     setIsLoading(false)
   }, [])
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const checkCookieAuth = async () => {
+    try {
+      // Try to fetch user data using cookie authentication
+      const response = await fetch("/api/auth/me", {
+        credentials: 'include' // Include cookies in request
+      })
+      
+      if (response.ok) {
+        const userData = await response.json()
+        setUser(userData.user)
+        // Also store in localStorage for faster subsequent loads
+        localStorage.setItem("user-data", JSON.stringify(userData.user))
+      }
+    } catch (error) {
+      console.log("Cookie auth check failed:", error)
+    }
+  }
+
+  const login = async (email: string, password: string): Promise<LoginResult> => {
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
@@ -38,17 +67,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, password }),
       })
 
-      if (response.ok) {
-        const data = await response.json()
+      const data = await response.json()
+
+      if (response.ok && data.success) {
+        // Successful login - user is approved
         localStorage.setItem("auth-token", data.token)
         localStorage.setItem("user-data", JSON.stringify(data.user))
         setUser(data.user)
-        return true
+        return {
+          success: true,
+          status: data.status,
+          user: data.user
+        }
+      } else if (response.status === 202) {
+        // User exists but is pending approval
+        return {
+          success: false,
+          status: data.status || 'pending',
+          message: data.message,
+          userInfo: data.userInfo
+        }
+      } else if (response.status === 403) {
+        // User is suspended, expired, or has other access issues
+        return {
+          success: false,
+          status: data.status,
+          message: data.message,
+          userInfo: data.userInfo || data.renewalInfo || data.supportEmail
+        }
+      } else {
+        // Invalid credentials or other error
+        return {
+          success: false,
+          status: 'error',
+          message: data.error || 'Invalid email or password'
+        }
       }
-      return false
     } catch (error) {
       console.error("Login error:", error)
-      return false
+      return {
+        success: false,
+        status: 'error',
+        message: 'An error occurred during login. Please try again.'
+      }
     }
   }
 

@@ -71,14 +71,14 @@ export async function GET(request: NextRequest) {
     // Get user waitlist items - for future implementation
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get("userId")
-
+    
     if (!userId) {
       return NextResponse.json(
         { error: "User ID is required" },
         { status: 400 }
       )
     }
-
+    
     // Return empty waitlist for now
     return NextResponse.json([])
   } catch (error) {

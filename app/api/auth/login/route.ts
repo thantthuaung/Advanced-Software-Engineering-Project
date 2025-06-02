@@ -44,44 +44,103 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if user is approved
-    if ((user as any).status !== 'approved') {
-      return NextResponse.json(
-        { error: "Your account is pending approval. Please contact the gym administration." },
-        { status: 403 }
-      )
+    const userStatus = (user as any).status
+    const userRole = (user as any).role
+
+    // Handle different user statuses
+    if (userStatus === 'pending') {
+      return NextResponse.json({
+        success: false,
+        status: 'pending',
+        message: "Your account is awaiting admin approval",
+        userInfo: {
+          firstName: (user as any).first_name,
+          lastName: (user as any).last_name,
+          email: (user as any).email,
+          membershipType: (user as any).membership_type,
+          registrationDate: (user as any).created_at,
+          paymentReference: (user as any).payment_reference
+        }
+      }, { status: 202 }) // 202 Accepted but pending
     }
 
-    // Generate JWT token
+    if (userStatus === 'suspended') {
+      return NextResponse.json({
+        success: false,
+        status: 'suspended',
+        message: "Your account has been suspended. Please contact support.",
+        supportEmail: "support@fitness.jcu.edu.au"
+      }, { status: 403 })
+    }
+
+    if (userStatus !== 'approved') {
+      return NextResponse.json({
+        success: false,
+        status: 'unknown',
+        message: "Account status unknown. Please contact support.",
+        supportEmail: "support@fitness.jcu.edu.au"
+      }, { status: 403 })
+    }
+
+    // Check if membership has expired
+    const expiryDate = new Date((user as any).expiry_date)
+    const today = new Date()
+    if (expiryDate < today) {
+      return NextResponse.json({
+        success: false,
+        status: 'expired',
+        message: "Your membership has expired. Please renew to continue.",
+        expiryDate: (user as any).expiry_date,
+        renewalInfo: {
+          membershipType: (user as any).membership_type,
+          contactEmail: "support@fitness.jcu.edu.au"
+        }
+      }, { status: 403 })
+    }
+
+    // Generate JWT token for approved users (5-day session)
     const token = jwt.sign(
       { 
         userId: (user as any).id,
         email: (user as any).email,
-        role: (user as any).role 
+        role: userRole 
       },
       JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '5d' }
     )
 
-    // Return user data and token
-    return NextResponse.json({
+    // Create response with HTTP-only session cookie
+    const response = NextResponse.json({
       success: true,
+      status: 'approved',
       user: {
         id: (user as any).id,
         email: (user as any).email,
         firstName: (user as any).first_name,
         lastName: (user as any).last_name,
-        role: (user as any).role,
+        role: userRole,
         membershipType: (user as any).membership_type,
-        status: (user as any).status
+        status: userStatus,
+        expiryDate: (user as any).expiry_date
       },
       token: token
     })
 
+    // Set HTTP-only session cookie that expires in 5 days
+    response.cookies.set('auth-token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 5 * 24 * 60 * 60, // 5 days in seconds
+      path: '/'
+    })
+
+    return response
+
   } catch (error) {
     console.error("Login error:", error)
     return NextResponse.json(
-      { error: "An error occurred during login" },
+      { error: "An error occurred during login. Please try again." },
       { status: 500 }
     )
   }

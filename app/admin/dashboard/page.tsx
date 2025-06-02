@@ -1,39 +1,56 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { useAuth } from "@/components/auth-provider"
 import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useEffect, useState } from "react"
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardHeader, 
+  CardTitle 
+} from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Progress } from "@/components/ui/progress"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { 
-  Users, 
-  Settings, 
   BarChart3, 
   Calendar, 
-  DollarSign, 
-  UserCheck, 
-  UserX, 
+  Users, 
   Clock, 
-  TrendingUp,
+  Settings, 
+  LogOut, 
+  Crown,
+  UserCheck,
   AlertCircle,
   CheckCircle,
-  XCircle,
-  LogOut,
-  Shield,
-  Crown,
+  UserX,
   Edit,
   Trash2,
-  User,
-  Lock,
+  Plus,
+  Filter,
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  DollarSign,
+  FileText,
+  Download,
+  Eye,
+  EyeOff,
   Mail,
   Key,
-  Eye,
-  EyeOff
+  Save,
+  Trophy,
+  Bell,
+  Award,
+  XCircle,
+  TrendingUp,
+  Shield,
+  User
 } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface User {
   id: string
@@ -77,65 +94,195 @@ interface BillingTransaction {
 }
 
 export default function AdminDashboard() {
-  const { user, logout } = useAuth()
+  const { user, logout, isLoading: authLoading } = useAuth()
   const router = useRouter()
-  const [users, setUsers] = useState<User[]>([])
-  const [billingTransactions, setBillingTransactions] = useState<BillingTransaction[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("overview")
+  
+  // Main data state
+  const [users, setUsers] = useState<User[]>([])
+  const [billingTransactions, setBillingTransactions] = useState<BillingTransaction[]>([])
+  const [selectedDate, setSelectedDate] = useState('')
+  const [sessions, setSessions] = useState<any[]>([])
+  const [bookings, setBookings] = useState<any[]>([])
+  const [weekSessions, setWeekSessions] = useState<any[]>([])
+  const [weeklyData, setWeeklyData] = useState<any[]>([])
+  const [sessionAnalytics, setSessionAnalytics] = useState<any[]>([])
+  
+  // Stats and filters
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    activeUsers: 0,
+    pendingUsers: 0,
+    todayBookings: 0,
+    totalRevenue: 0
+  })
   const [filterStatus, setFilterStatus] = useState("all")
   const [searchTerm, setSearchTerm] = useState("")
-  const [sessionAnalytics, setSessionAnalytics] = useState<any[]>([])
-  const [editingUser, setEditingUser] = useState<User | null>(null)
-  const [showEditModal, setShowEditModal] = useState(false)
+  
+  // Modals and editing state
   const [showCreateSessionModal, setShowCreateSessionModal] = useState(false)
-  const [showModifyCapacityModal, setShowModifyCapacityModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
   const [showSessionListModal, setShowSessionListModal] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [editingSession, setEditingSession] = useState<any>(null)
   const [showEditSessionModal, setShowEditSessionModal] = useState(false)
   
-  // Session management state
-  const [sessions, setSessions] = useState<any[]>([])
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0])
-  const [editingSession, setEditingSession] = useState<any>(null)
+  // New session form state
+  const [newSession, setNewSession] = useState({
+    date: '',
+    startTime: '',
+    endTime: '',
+    capacity: '',
+    type: 'general'
+  })
+  
+  // Loading states
   const [sessionLoading, setSessionLoading] = useState(false)
-  const [weeklyData, setWeeklyData] = useState<any[]>([])
+  const [bookingLoading, setBookingLoading] = useState(false)
+  const [userLoading, setUserLoading] = useState(false)
   const [weeklyLoading, setWeeklyLoading] = useState(false)
   
-  // Admin profile state
+  // Booking filters
+  const [bookingDate, setBookingDate] = useState('')
+  const [selectedBookingDate, setSelectedBookingDate] = useState(new Date().toISOString().split('T')[0])
+  const [bookingFilter, setBookingFilter] = useState('all')
+  
+  // Profile update states
   const [showEmailChangeModal, setShowEmailChangeModal] = useState(false)
   const [showPasswordChangeModal, setShowPasswordChangeModal] = useState(false)
+  const [profileUpdateLoading, setProfileUpdateLoading] = useState(false)
   const [emailChangeData, setEmailChangeData] = useState({
-    currentPassword: "",
-    newEmail: "",
+    currentPassword: '',
+    newEmail: '',
     showPassword: false
   })
   const [passwordChangeData, setPasswordChangeData] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
     showCurrentPassword: false,
     showNewPassword: false,
     showConfirmPassword: false
   })
-  const [profileUpdateLoading, setProfileUpdateLoading] = useState(false)
-  
-  const [newSession, setNewSession] = useState({
-    date: "",
-    startTime: "",
-    endTime: "",
-    capacity: "",
-    type: "general",
-    instructor: "Self-guided",
-    description: "Open gym access"
-  })
 
-  useEffect(() => {
-    if (!user || user.role !== 'admin') {
-      router.push('/admin/login')
-      return
+  // Add new state for achievements and notifications management
+  const [achievementTypes, setAchievementTypes] = useState<any[]>([])
+  const [achievementHistory, setAchievementHistory] = useState<any[]>([])
+  const [achievementStats, setAchievementStats] = useState({
+    totalTypes: 0,
+    totalGranted: 0
+  })
+  const [grantAchievementForm, setGrantAchievementForm] = useState({
+    userId: '',
+    achievementId: ''
+  })
+  const [achievementLoading, setAchievementLoading] = useState(false)
+
+  const [notificationForm, setNotificationForm] = useState({
+    type: 'announcement',
+    priority: 'normal',
+    target: '',
+    title: '',
+    message: '',
+    actionUrl: ''
+  })
+  const [notificationHistory, setNotificationHistory] = useState<any[]>([])
+  const [notificationLoading, setNotificationLoading] = useState(false)
+
+  // Helper functions for gym schedule validation
+  const isValidGymDay = (date: string): boolean => {
+    if (!date) return false
+    const selectedDate = new Date(date)
+    const dayOfWeek = selectedDate.getDay() // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+    return dayOfWeek >= 1 && dayOfWeek <= 6 // Monday (1) to Saturday (6)
+  }
+
+  const isValidGymTime = (time: string): boolean => {
+    if (!time) return false
+    const [hours, minutes] = time.split(':').map(Number)
+    const timeInMinutes = hours * 60 + minutes
+    const gymOpenTime = 7 * 60 // 7:00 AM in minutes
+    const gymCloseTime = 21 * 60 // 9:00 PM in minutes
+    return timeInMinutes >= gymOpenTime && timeInMinutes <= gymCloseTime
+  }
+
+  const getMinDateForBooking = (): string => {
+    const today = new Date()
+    // If today is Sunday, start from Monday
+    if (today.getDay() === 0) {
+      today.setDate(today.getDate() + 1)
     }
-    fetchData()
-  }, [user, router])
+    return today.toISOString().split('T')[0]
+  }
+
+  const generateTimeSlots = (): string[] => {
+    const slots = []
+    // Generate 1-hour time slots from 7:00 AM to 9:00 PM
+    for (let hour = 7; hour <= 20; hour++) {
+      const timeString = `${hour.toString().padStart(2, '0')}:00`
+      slots.push(timeString)
+      // Add 30-minute slots for popular times (8 AM - 6 PM)
+      if (hour >= 8 && hour <= 17) {
+        const halfHourString = `${hour.toString().padStart(2, '0')}:30`
+        slots.push(halfHourString)
+      }
+    }
+    // Add final slot for 9:00 PM
+    slots.push('21:00')
+    return slots
+  }
+
+  const getRecommendedEndTime = (startTime: string): string => {
+    if (!startTime) return ''
+    const [hours, minutes] = startTime.split(':').map(Number)
+    let endHour = hours + 1 // Default 1-hour session
+    let endMinute = minutes
+    
+    // If it would go beyond 9 PM, cap it at 9 PM
+    if (endHour > 21) {
+      endHour = 21
+      endMinute = 0
+    }
+    
+    return `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`
+  }
+
+  const validateSessionTime = (startTime: string, endTime: string): string | null => {
+    if (!startTime || !endTime) return 'Please select both start and end times'
+    
+    if (!isValidGymTime(startTime)) {
+      return 'Start time must be between 7:00 AM and 9:00 PM'
+    }
+    
+    if (!isValidGymTime(endTime)) {
+      return 'End time must be between 7:00 AM and 9:00 PM'
+    }
+    
+    const startMinutes = startTime.split(':').map(Number).reduce((h, m) => h * 60 + m)
+    const endMinutes = endTime.split(':').map(Number).reduce((h, m) => h * 60 + m)
+    
+    if (endMinutes <= startMinutes) {
+      return 'End time must be after start time'
+    }
+    
+    const durationMinutes = endMinutes - startMinutes
+    if (durationMinutes < 30) {
+      return 'Session must be at least 30 minutes long'
+    }
+    
+    if (durationMinutes > 180) {
+      return 'Session cannot be longer than 3 hours'
+    }
+    
+    return null
+  }
+
+  const getDayName = (date: string): string => {
+    if (!date) return ''
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+    return dayNames[new Date(date).getDay()]
+  }
 
   const fetchData = async () => {
     try {
@@ -146,6 +293,15 @@ export default function AdminDashboard() {
       if (usersResponse.ok) {
         const usersData = await usersResponse.json()
         setUsers(usersData)
+        
+        // Update stats from real data
+        setStats({
+          totalUsers: usersData.length,
+          activeUsers: usersData.filter((u: any) => u.status === 'approved').length,
+          pendingUsers: usersData.filter((u: any) => u.status === 'pending').length,
+          todayBookings: 0, // Will be updated from bookings data
+          totalRevenue: 0 // Will be calculated from billing data
+        })
       }
 
       // Fetch billing transactions
@@ -198,8 +354,8 @@ export default function AdminDashboard() {
       // Fetch sessions for today by default
       await fetchSessions(new Date().toISOString().split('T')[0])
       
-      // Fetch weekly overview data
-      await loadWeeklyOverview()
+      // Fetch bookings
+      await fetchBookings()
       
     } catch (error) {
       console.error('Error fetching data:', error)
@@ -223,49 +379,113 @@ export default function AdminDashboard() {
     }
   }
 
-  const fetchWeekOverview = async () => {
+  const fetchBookings = async (date?: string, status?: string) => {
     try {
-      setWeeklyLoading(true)
-      const weekDays = []
-      const today = new Date()
-      const monday = new Date(today.setDate(today.getDate() - today.getDay() + 1))
+      setBookingLoading(true)
+      let url = '/api/admin/bookings'
+      const params = new URLSearchParams()
       
-      for (let i = 0; i < 5; i++) {
-        const day = new Date(monday)
-        day.setDate(monday.getDate() + i)
-        const dateString = day.toISOString().split('T')[0]
-        
-        const response = await fetch(`/api/admin/sessions?date=${dateString}`)
-        if (response.ok) {
-          const sessionsData = await response.json()
-          const totalCapacity = sessionsData.reduce((sum: number, session: any) => sum + session.capacity, 0)
-          const totalBookings = sessionsData.reduce((sum: number, session: any) => sum + session.current_bookings, 0)
-          const utilization = totalCapacity > 0 ? Math.round((totalBookings / totalCapacity) * 100) : 0
-          
-          weekDays.push({
-            day: day.toLocaleDateString('en-US', { weekday: 'long' }),
-            date: dateString,
-            sessions: sessionsData.length,
-            utilization: utilization,
-            available: sessionsData.filter((s: any) => s.current_bookings < s.capacity).length,
-            totalCapacity,
-            totalBookings
-          })
-        }
+      if (date) params.append('date', date)
+      if (status && status !== 'all') params.append('status', status)
+      
+      if (params.toString()) {
+        url += '?' + params.toString()
       }
       
-      return weekDays
+      const response = await fetch(url)
+      if (response.ok) {
+        const bookingsData = await response.json()
+        setBookings(Array.isArray(bookingsData) ? bookingsData : [])
+      }
     } catch (error) {
-      console.error('Error fetching week overview:', error)
-      return []
+      console.error('Error fetching bookings:', error)
     } finally {
-      setWeeklyLoading(false)
+      setBookingLoading(false)
     }
   }
 
-  const loadWeeklyOverview = async () => {
-    const weekData = await fetchWeekOverview()
-    setWeeklyData(weekData)
+  const fetchAchievementTypes = async () => {
+    try {
+      const response = await fetch('/api/achievements?type=types', {
+        credentials: 'include'
+      })
+      if (response.ok) {
+        const types = await response.json()
+        setAchievementTypes(types)
+        setAchievementStats(prev => ({ ...prev, totalTypes: types.length }))
+      }
+    } catch (error) {
+      console.error('Error fetching achievement types:', error)
+    }
+  }
+
+  const fetchAchievementHistory = async () => {
+    try {
+      const response = await fetch('/api/achievements?type=all', {
+        credentials: 'include'
+      })
+      if (response.ok) {
+        const history = await response.json()
+        setAchievementHistory(history)
+        setAchievementStats(prev => ({ ...prev, totalGranted: history.length }))
+      }
+    } catch (error) {
+      console.error('Error fetching achievement history:', error)
+    }
+  }
+
+  const fetchNotificationHistory = async () => {
+    try {
+      const response = await fetch('/api/notifications?type=all&limit=50', {
+        credentials: 'include'
+      })
+      if (response.ok) {
+        const history = await response.json()
+        setNotificationHistory(history)
+      }
+    } catch (error) {
+      console.error('Error fetching notification history:', error)
+    }
+  }
+
+  useEffect(() => {
+    // Don't redirect while auth is still loading
+    if (authLoading) return
+    
+    if (!user || user.role !== 'admin') {
+      router.push('/admin/login')
+      return
+    }
+    fetchData()
+  }, [user, router, authLoading])
+
+  // Load achievement and notification data when component mounts
+  useEffect(() => {
+    if (user?.role === 'admin') {
+      fetchAchievementTypes()
+      fetchAchievementHistory()
+      fetchNotificationHistory()
+    }
+  }, [user])
+
+  // Show loading screen while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-400 mx-auto mb-4"></div>
+          <p className="text-white text-xl">Loading admin dashboard...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
+        <div className="text-white text-xl">Loading admin dashboard...</div>
+      </div>
+    )
   }
 
   const handleLogout = () => {
@@ -310,13 +530,6 @@ export default function AdminDashboard() {
     
     return matchesStatus && matchesSearch
   })
-
-  const stats = {
-    totalUsers: users.length,
-    activeUsers: users.filter(u => u.status === 'approved').length,
-    pendingUsers: users.filter(u => u.status === 'pending').length,
-    totalRevenue: billingTransactions.reduce((sum, t) => sum + t.amount, 0)
-  }
 
   const handleEditUser = (user: User) => {
     setEditingUser(user)
@@ -458,6 +671,32 @@ export default function AdminDashboard() {
   }
 
   const handleCreateSession = async () => {
+    // Validate all required fields
+    if (!newSession.date || !newSession.startTime || !newSession.endTime || !newSession.capacity) {
+      alert('Please fill in all required fields')
+      return
+    }
+
+    // Validate gym operating days (Monday to Saturday only)
+    if (!isValidGymDay(newSession.date)) {
+      alert(`Gym is closed on ${getDayName(newSession.date)}s. Please select a date from Monday to Saturday.`)
+      return
+    }
+
+    // Validate session times
+    const timeValidationError = validateSessionTime(newSession.startTime, newSession.endTime)
+    if (timeValidationError) {
+      alert(timeValidationError)
+      return
+    }
+
+    // Validate capacity
+    const capacity = parseInt(newSession.capacity)
+    if (isNaN(capacity) || capacity < 1 || capacity > 50) {
+      alert('Capacity must be between 1 and 50')
+      return
+    }
+
     try {
       const response = await fetch('/api/admin/sessions', {
         method: 'POST',
@@ -469,25 +708,22 @@ export default function AdminDashboard() {
       })
 
       if (response.ok) {
-        alert('Session created successfully')
+        alert('Session created successfully!')
         setShowCreateSessionModal(false)
         setNewSession({
           date: "",
           startTime: "",
           endTime: "",
           capacity: "",
-          type: "general",
-          instructor: "Self-guided",
-          description: "Open gym access"
+          type: "general"
         })
         // Refresh sessions if the created session is for the selected date
         if (newSession.date === selectedDate) {
           await fetchSessions(selectedDate)
         }
-        // Refresh weekly overview
-        await loadWeeklyOverview()
       } else {
-        alert('Failed to create session')
+        const errorData = await response.json()
+        alert(errorData.error || 'Failed to create session')
       }
     } catch (error) {
       console.error('Error creating session:', error)
@@ -497,6 +733,32 @@ export default function AdminDashboard() {
 
   const handleUpdateSession = async () => {
     if (!editingSession) return
+    
+    // Validate all required fields
+    if (!editingSession.date || !editingSession.start_time || !editingSession.end_time || !editingSession.capacity) {
+      alert('Please fill in all required fields')
+      return
+    }
+
+    // Validate gym operating days (Monday to Saturday only)
+    if (!isValidGymDay(editingSession.date)) {
+      alert(`Gym is closed on ${getDayName(editingSession.date)}s. Please select a date from Monday to Saturday.`)
+      return
+    }
+
+    // Validate session times
+    const timeValidationError = validateSessionTime(editingSession.start_time, editingSession.end_time)
+    if (timeValidationError) {
+      alert(timeValidationError)
+      return
+    }
+
+    // Validate capacity
+    const capacity = parseInt(editingSession.capacity)
+    if (isNaN(capacity) || capacity < 1 || capacity > 50) {
+      alert('Capacity must be between 1 and 50')
+      return
+    }
     
     try {
       const response = await fetch('/api/admin/sessions', {
@@ -508,7 +770,7 @@ export default function AdminDashboard() {
             date: editingSession.date,
             startTime: editingSession.start_time,
             endTime: editingSession.end_time,
-            capacity: parseInt(editingSession.capacity),
+            capacity: capacity,
             type: editingSession.type,
             instructor: editingSession.instructor,
             description: editingSession.description
@@ -524,7 +786,8 @@ export default function AdminDashboard() {
         // Refresh weekly overview
         await loadWeeklyOverview()
       } else {
-        alert('Failed to update session')
+        const errorData = await response.json()
+        alert(errorData.error || 'Failed to update session')
       }
     } catch (error) {
       console.error('Error updating session:', error)
@@ -564,6 +827,38 @@ export default function AdminDashboard() {
   const handleDateChange = async (date: string) => {
     setSelectedDate(date)
     await fetchSessions(date)
+  }
+
+  const handleBookingDateChange = async (date: string) => {
+    setSelectedBookingDate(date)
+    await fetchBookings(date, bookingFilter)
+  }
+
+  const handleBookingFilterChange = async (filter: string) => {
+    setBookingFilter(filter)
+    await fetchBookings(selectedBookingDate, filter)
+  }
+
+  const handleCancelBooking = async (bookingId: string) => {
+    if (!confirm('Are you sure you want to cancel this booking?')) return
+    
+    try {
+      const response = await fetch('/api/admin/bookings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bookingId,
+          updates: { status: 'cancelled' }
+        })
+      })
+
+      if (response.ok) {
+        await fetchBookings(selectedBookingDate, bookingFilter)
+        await fetchSessions(selectedDate) // Refresh session data to update capacity
+      }
+    } catch (error) {
+      console.error('Error cancelling booking:', error)
+    }
   }
 
   const handleEmailChange = async () => {
@@ -676,12 +971,145 @@ export default function AdminDashboard() {
     }
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
-        <div className="text-white text-xl">Loading admin dashboard...</div>
-      </div>
-    )
+  const handleGrantAchievement = async () => {
+    if (!grantAchievementForm.userId || !grantAchievementForm.achievementId) {
+      alert('Please select both a user and an achievement type')
+      return
+    }
+
+    try {
+      setAchievementLoading(true)
+      const response = await fetch('/api/achievements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          userId: grantAchievementForm.userId,
+          achievementId: grantAchievementForm.achievementId,
+          adminOverride: true
+        })
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        alert(`Achievement granted successfully! User earned ${result.achievement.points} points.`)
+        setGrantAchievementForm({ userId: '', achievementId: '' })
+        await fetchAchievementHistory() // Refresh the history
+      } else {
+        alert(result.error || 'Failed to grant achievement')
+      }
+    } catch (error) {
+      console.error('Error granting achievement:', error)
+      alert('An error occurred while granting the achievement')
+    } finally {
+      setAchievementLoading(false)
+    }
+  }
+
+  const handleSendNotification = async () => {
+    if (!notificationForm.title || !notificationForm.message) {
+      alert('Please enter both title and message')
+      return
+    }
+
+    try {
+      setNotificationLoading(true)
+      const response = await fetch('/api/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          title: notificationForm.title,
+          message: notificationForm.message,
+          type: notificationForm.type,
+          priority: notificationForm.priority,
+          userId: notificationForm.target || null, // null for global notifications
+          actionUrl: notificationForm.actionUrl || null
+        })
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        alert(result.message || 'Notification sent successfully!')
+        setNotificationForm({
+          type: 'announcement',
+          priority: 'normal',
+          target: '',
+          title: '',
+          message: '',
+          actionUrl: ''
+        })
+        await fetchNotificationHistory() // Refresh the history
+      } else {
+        alert(result.error || 'Failed to send notification')
+      }
+    } catch (error) {
+      console.error('Error sending notification:', error)
+      alert('An error occurred while sending the notification')
+    } finally {
+      setNotificationLoading(false)
+    }
+  }
+
+  const handleNotificationTemplate = (template: { title: string; message: string; type: string; priority: string }) => {
+    setNotificationForm(prev => ({
+      ...prev,
+      title: template.title,
+      message: template.message,
+      type: template.type,
+      priority: template.priority
+    }))
+  }
+
+  const fetchWeekOverview = async () => {
+    try {
+      setWeeklyLoading(true)
+      const weekDays = []
+      const today = new Date()
+      
+      // Find the Monday of the current week
+      const monday = new Date(today)
+      monday.setDate(today.getDate() - today.getDay() + 1)
+      
+      // Generate data for Monday through Saturday (6 days)
+      for (let i = 0; i < 6; i++) {
+        const day = new Date(monday)
+        day.setDate(monday.getDate() + i)
+        const dateString = day.toISOString().split('T')[0]
+        
+        const response = await fetch(`/api/admin/sessions?date=${dateString}`)
+        if (response.ok) {
+          const sessionsData = await response.json()
+          const totalCapacity = sessionsData.reduce((sum: number, session: any) => sum + session.capacity, 0)
+          const totalBookings = sessionsData.reduce((sum: number, session: any) => sum + session.current_bookings, 0)
+          const utilization = totalCapacity > 0 ? Math.round((totalBookings / totalCapacity) * 100) : 0
+          
+          weekDays.push({
+            day: day.toLocaleDateString('en-US', { weekday: 'long' }),
+            date: dateString,
+            sessions: sessionsData.length,
+            utilization: utilization,
+            available: sessionsData.filter((s: any) => s.current_bookings < s.capacity).length,
+            totalCapacity,
+            totalBookings
+          })
+        }
+      }
+      
+      return weekDays
+    } catch (error) {
+      console.error('Error fetching week overview:', error)
+      return []
+    } finally {
+      setWeeklyLoading(false)
+    }
+  }
+
+  const loadWeeklyOverview = async () => {
+    const weekData = await fetchWeekOverview()
+    setWeeklyData(weekData)
   }
 
   return (
@@ -748,7 +1176,7 @@ export default function AdminDashboard() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5 bg-slate-800/50 border border-amber-500/30">
+          <TabsList className="grid w-full grid-cols-7 bg-slate-800/50 border border-amber-500/30">
             <TabsTrigger value="overview" className="text-white data-[state=active]:bg-amber-600">
               <BarChart3 className="h-4 w-4 mr-2" />
               Overview
@@ -760,6 +1188,18 @@ export default function AdminDashboard() {
             <TabsTrigger value="sessions" className="text-white data-[state=active]:bg-amber-600">
               <Calendar className="h-4 w-4 mr-2" />
               Sessions
+            </TabsTrigger>
+            <TabsTrigger value="bookings" className="text-white data-[state=active]:bg-amber-600">
+              <Clock className="h-4 w-4 mr-2" />
+              Bookings
+            </TabsTrigger>
+            <TabsTrigger value="achievements" className="text-white data-[state=active]:bg-amber-600">
+              <Trophy className="h-4 w-4 mr-2" />
+              Achievements
+            </TabsTrigger>
+            <TabsTrigger value="notifications" className="text-white data-[state=active]:bg-amber-600">
+              <Bell className="h-4 w-4 mr-2" />
+              Notifications
             </TabsTrigger>
             <TabsTrigger value="billing" className="text-white data-[state=active]:bg-amber-600">
               <DollarSign className="h-4 w-4 mr-2" />
@@ -1108,7 +1548,7 @@ export default function AdminDashboard() {
             <Card className="bg-slate-800/50 border-amber-500/30">
               <CardHeader>
                 <CardTitle className="text-white flex items-center justify-between">
-                  Weekly Overview
+                  Weekly Overview (Mon-Sat)
                   <Button
                     size="sm"
                     variant="outline"
@@ -1123,7 +1563,9 @@ export default function AdminDashboard() {
                     )}
                   </Button>
                 </CardTitle>
-                <CardDescription className="text-gray-300">Session utilization across the work week</CardDescription>
+                <CardDescription className="text-gray-300">
+                  Session utilization Monday through Saturday (7 AM - 9 PM)
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
@@ -1194,6 +1636,568 @@ export default function AdminDashboard() {
                         <div className="text-xs text-gray-400">Avg Utilization</div>
                       </div>
                     </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="bookings" className="space-y-6">
+            <h2 className="text-2xl font-bold text-white">Booking Management</h2>
+            
+            {/* Booking Filters */}
+            <Card className="bg-slate-800/50 border-amber-500/30">
+              <CardHeader>
+                <CardTitle className="text-white">Filter Bookings</CardTitle>
+                <CardDescription className="text-gray-300">
+                  Filter bookings by date and status
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Date</label>
+                    <input
+                      type="date"
+                      value={selectedBookingDate}
+                      onChange={(e) => handleBookingDateChange(e.target.value)}
+                      className="w-full px-3 py-2 bg-slate-700 text-white border border-slate-600 rounded-lg focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Status</label>
+                    <Select value={bookingFilter} onValueChange={handleBookingFilterChange}>
+                      <SelectTrigger className="bg-slate-700 text-white border-slate-600">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-700 border-slate-600">
+                        <SelectItem value="all">All Bookings</SelectItem>
+                        <SelectItem value="confirmed">Confirmed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <Button
+                      onClick={() => fetchBookings(selectedBookingDate, bookingFilter)}
+                      className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+                      disabled={bookingLoading}
+                    >
+                      {bookingLoading ? "Loading..." : "Refresh"}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Booking Statistics */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Card className="bg-gradient-to-br from-green-500/20 to-green-600/20 border border-green-500/30">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-green-400 text-sm font-medium">Total Bookings</p>
+                      <p className="text-2xl font-bold text-white">{bookings.length}</p>
+                    </div>
+                    <CheckCircle className="h-8 w-8 text-green-400" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-blue-500/20 to-blue-600/20 border border-blue-500/30">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-blue-400 text-sm font-medium">Confirmed</p>
+                      <p className="text-2xl font-bold text-white">
+                        {bookings.filter(b => b.status === 'confirmed').length}
+                      </p>
+                    </div>
+                    <Calendar className="h-8 w-8 text-blue-400" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-red-500/20 to-red-600/20 border border-red-500/30">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-red-400 text-sm font-medium">Cancelled</p>
+                      <p className="text-2xl font-bold text-white">
+                        {bookings.filter(b => b.status === 'cancelled').length}
+                      </p>
+                    </div>
+                    <XCircle className="h-8 w-8 text-red-400" />
+                  </div>
+                </CardContent>
+              </Card>
+              
+              <Card className="bg-gradient-to-br from-amber-500/20 to-amber-600/20 border border-amber-500/30">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-amber-400 text-sm font-medium">Capacity Used</p>
+                      <p className="text-2xl font-bold text-white">
+                        {Math.round((bookings.filter(b => b.status === 'confirmed').length / Math.max(bookings.length * 0.1, 1)) * 100)}%
+                      </p>
+                    </div>
+                    <Users className="h-8 w-8 text-amber-400" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Bookings List */}
+            <Card className="bg-slate-800/50 border-amber-500/30">
+              <CardHeader>
+                <CardTitle className="text-white">
+                  Bookings for {new Date(selectedBookingDate).toLocaleDateString('en-AU', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                </CardTitle>
+                <CardDescription className="text-gray-300">
+                  {bookings.length} booking{bookings.length !== 1 ? 's' : ''} found
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {bookingLoading ? (
+                  <div className="text-center py-8 text-gray-400">Loading bookings...</div>
+                ) : bookings.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400">No bookings found for selected criteria</div>
+                ) : (
+                  <div className="space-y-4 max-h-96 overflow-y-auto">
+                    {bookings.map((booking) => (
+                      <div key={booking.id} className="p-4 bg-slate-700/50 rounded-lg border border-slate-600/50 hover:bg-slate-700/70 transition-colors">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3">
+                              <div className="flex-1">
+                                <p className="font-semibold text-white">
+                                  {booking.user?.name || `${booking.user?.firstName || ''} ${booking.user?.lastName || ''}`.trim() || 'Unknown User'}
+                                </p>
+                                <p className="text-sm text-gray-300">{booking.user?.email}</p>
+                                <p className="text-xs text-gray-400">Student ID: {booking.user?.studentId || 'N/A'}</p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-sm font-medium text-white">
+                                  {booking.session?.startTime} - {booking.session?.endTime}
+                                </p>
+                                <p className="text-xs text-gray-400">{booking.session?.type || 'General Session'}</p>
+                                <p className="text-xs text-gray-400">
+                                  Instructor: {booking.session?.instructor || 'Self-guided'}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <Badge 
+                                  className={
+                                    booking.status === 'confirmed' ? 'bg-green-100 text-green-800 border-green-300' :
+                                    booking.status === 'cancelled' ? 'bg-red-100 text-red-800 border-red-300' :
+                                    booking.status === 'completed' ? 'bg-blue-100 text-blue-800 border-blue-300' :
+                                    'bg-gray-100 text-gray-800 border-gray-300'
+                                  }
+                                >
+                                  {booking.status}
+                                </Badge>
+                                <p className="text-xs text-gray-400 mt-1">
+                                  Booked: {new Date(booking.bookingDate || booking.createdAt).toLocaleDateString()}
+                                </p>
+                                {booking.status === 'confirmed' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="mt-2 border-red-500/50 text-red-400 hover:bg-red-500/10"
+                                    onClick={() => handleCancelBooking(booking.id)}
+                                  >
+                                    Cancel
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="achievements" className="space-y-6">
+            {/* Achievements Management */}
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-white">Achievements Management</h2>
+              <Button
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/achievements?type=types', {
+                      credentials: 'include'
+                    })
+                    if (response.ok) {
+                      const types = await response.json()
+                      console.log('Achievement types:', types)
+                      alert(`${types.length} achievement types available`)
+                    }
+                  } catch (error) {
+                    console.error('Error fetching achievement types:', error)
+                  }
+                }}
+              >
+                <Trophy className="h-4 w-4 mr-2" />
+                View Achievement Types
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Achievement Stats */}
+              <Card className="bg-slate-800/50 border-amber-500/30">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center">
+                    <Trophy className="h-5 w-5 mr-2 text-amber-400" />
+                    Achievement Overview
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="text-center p-4 bg-amber-500/10 rounded-lg border border-amber-500/30">
+                      <Trophy className="h-6 w-6 text-amber-400 mx-auto mb-2" />
+                      <p className="text-2xl font-bold text-white">6</p>
+                      <p className="text-amber-400 text-sm">Achievement Types</p>
+                    </div>
+                    <div className="text-center p-4 bg-green-500/10 rounded-lg border border-green-500/30">
+                      <Users className="h-6 w-6 text-green-400 mx-auto mb-2" />
+                      <p className="text-2xl font-bold text-white">0</p>
+                      <p className="text-green-400 text-sm">Achievements Granted</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Grant Achievement */}
+              <Card className="bg-slate-800/50 border-amber-500/30">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center">
+                    <Award className="h-5 w-5 mr-2 text-amber-400" />
+                    Grant Achievement
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Select User</label>
+                      <select 
+                        value={grantAchievementForm.userId}
+                        onChange={(e) => setGrantAchievementForm(prev => ({ ...prev, userId: e.target.value }))}
+                        className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white"
+                      >
+                        <option value="">Choose a user...</option>
+                        {users.map(user => (
+                          <option key={user.id} value={user.id}>
+                            {user.first_name} {user.last_name} ({user.email})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Achievement Type</label>
+                      <select 
+                        value={grantAchievementForm.achievementId}
+                        onChange={(e) => setGrantAchievementForm(prev => ({ ...prev, achievementId: e.target.value }))}
+                        className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white"
+                      >
+                        <option value="">Choose achievement...</option>
+                        <option value="first_workout">🎯 First Workout (10 pts)</option>
+                        <option value="weekly_warrior">💪 Weekly Warrior (25 pts)</option>
+                        <option value="consistency_king">🔥 Consistency King (20 pts)</option>
+                        <option value="early_bird">🌅 Early Bird (15 pts)</option>
+                        <option value="month_master">🏆 Month Master (50 pts)</option>
+                        <option value="dedicated_member">⭐ Dedicated Member (100 pts)</option>
+                      </select>
+                    </div>
+                    
+                    <Button 
+                      onClick={handleGrantAchievement}
+                      disabled={achievementLoading}
+                      className="w-full bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50"
+                    >
+                      {achievementLoading ? 'Granting...' : 'Grant Achievement'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Achievement History */}
+            <Card className="bg-slate-800/50 border-amber-500/30">
+              <CardHeader>
+                <CardTitle className="text-white">Achievement History</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {achievementHistory.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400">
+                    <Trophy className="h-12 w-12 mx-auto mb-3" />
+                    <p>No achievements granted yet</p>
+                    <p className="text-sm">Granted achievements will appear here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {achievementHistory.map((achievement) => (
+                      <div key={achievement.id} className="p-3 bg-amber-500/10 rounded-lg border border-amber-500/30">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-amber-500 rounded-lg flex items-center justify-center text-white text-lg">
+                              {achievement.achievement_info?.icon || '🏆'}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-amber-400">
+                                {achievement.achievement_info?.name || achievement.achievement_id}
+                              </p>
+                              <p className="text-gray-300 text-sm">
+                                Granted to {achievement.user_name}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                {new Date(achievement.earned_at).toLocaleDateString("en-AU", {
+                                  weekday: "short",
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit"
+                                })}
+                              </p>
+                            </div>
+                          </div>
+                          <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+                            +{achievement.points || achievement.achievement_info?.points || 0} pts
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="notifications" className="space-y-6">
+            {/* Notifications Management */}
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-white">Notifications Management</h2>
+              <Button
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                onClick={() => {
+                  // Handle send notification
+                  alert('Send notification functionality coming soon!')
+                }}
+              >
+                <Bell className="h-4 w-4 mr-2" />
+                Send Global Notification
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Send Notification */}
+              <Card className="bg-slate-800/50 border-blue-500/30">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center">
+                    <Bell className="h-5 w-5 mr-2 text-blue-400" />
+                    Send Notification
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Type</label>
+                      <select 
+                        value={notificationForm.type}
+                        onChange={(e) => setNotificationForm(prev => ({ ...prev, type: e.target.value }))}
+                        className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white"
+                      >
+                        <option value="announcement">📢 Announcement</option>
+                        <option value="info">ℹ️ Information</option>
+                        <option value="warning">⚠️ Warning</option>
+                        <option value="success">✅ Success</option>
+                        <option value="error">❌ Error</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Priority</label>
+                      <select 
+                        value={notificationForm.priority}
+                        onChange={(e) => setNotificationForm(prev => ({ ...prev, priority: e.target.value }))}
+                        className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white"
+                      >
+                        <option value="normal">Normal</option>
+                        <option value="high">High</option>
+                        <option value="urgent">Urgent</option>
+                        <option value="low">Low</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Target</label>
+                      <select 
+                        value={notificationForm.target}
+                        onChange={(e) => setNotificationForm(prev => ({ ...prev, target: e.target.value }))}
+                        className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white"
+                      >
+                        <option value="">All Users (Global)</option>
+                        {users.map(user => (
+                          <option key={user.id} value={user.id}>
+                            {user.first_name} {user.last_name} ({user.email})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Title</label>
+                      <input 
+                        type="text" 
+                        value={notificationForm.title}
+                        onChange={(e) => setNotificationForm(prev => ({ ...prev, title: e.target.value }))}
+                        placeholder="Notification title..."
+                        className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Message</label>
+                      <textarea 
+                        rows={3}
+                        value={notificationForm.message}
+                        onChange={(e) => setNotificationForm(prev => ({ ...prev, message: e.target.value }))}
+                        placeholder="Notification message..."
+                        className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white"
+                      />
+                    </div>
+                    
+                    <Button 
+                      onClick={handleSendNotification}
+                      disabled={notificationLoading}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+                    >
+                      {notificationLoading ? 'Sending...' : 'Send Notification'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Notification Templates */}
+              <Card className="bg-slate-800/50 border-blue-500/30">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center">
+                    <FileText className="h-5 w-5 mr-2 text-blue-400" />
+                    Quick Templates
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => handleNotificationTemplate({
+                        title: "Scheduled Maintenance",
+                        message: "The gym will be temporarily closed for maintenance on [DATE] from [TIME] to [TIME]. Please plan your workouts accordingly.",
+                        type: "warning",
+                        priority: "high"
+                      })}
+                      className="w-full justify-start text-left border-yellow-500/50 text-yellow-400 hover:bg-yellow-500/10"
+                    >
+                      🔧 Maintenance Notice
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      onClick={() => handleNotificationTemplate({
+                        title: "New Equipment Available",
+                        message: "We've added new fitness equipment to the gym! Come check out our latest additions and enhance your workout experience.",
+                        type: "announcement",
+                        priority: "normal"
+                      })}
+                      className="w-full justify-start text-left border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
+                    >
+                      🏋️ New Equipment
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      onClick={() => handleNotificationTemplate({
+                        title: "Session Reminder",
+                        message: "Don't forget about your upcoming gym session tomorrow at [TIME]. We look forward to seeing you!",
+                        type: "info",
+                        priority: "normal"
+                      })}
+                      className="w-full justify-start text-left border-blue-500/50 text-blue-400 hover:bg-blue-500/10"
+                    >
+                      ⏰ Session Reminder
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Notification History */}
+            <Card className="bg-slate-800/50 border-blue-500/30">
+              <CardHeader>
+                <CardTitle className="text-white">Recent Notifications</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {notificationHistory.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400">
+                    <Bell className="h-12 w-12 mx-auto mb-3" />
+                    <p>No notifications sent yet</p>
+                    <p className="text-sm">Sent notifications will appear here</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {notificationHistory.slice(0, 10).map((notification) => (
+                      <div key={notification.id} className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/30">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2 mb-1">
+                              <h4 className="font-semibold text-blue-400">{notification.title}</h4>
+                              <Badge className={`text-xs ${
+                                notification.priority === 'urgent' ? 'bg-red-500 text-white' :
+                                notification.priority === 'high' ? 'bg-orange-500 text-white' :
+                                'bg-blue-500 text-white'
+                              }`}>
+                                {notification.priority}
+                              </Badge>
+                            </div>
+                            <p className="text-gray-300 text-sm mb-2 line-clamp-2">{notification.message}</p>
+                            <div className="flex items-center space-x-4 text-xs text-gray-400">
+                              <span>
+                                {new Date(notification.created_at).toLocaleDateString("en-AU", {
+                                  weekday: "short",
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit"
+                                })}
+                              </span>
+                              <span>
+                                {notification.user_name || 'All Users'}
+                              </span>
+                              <Badge className={`text-xs ${
+                                notification.type === 'announcement' ? 'bg-purple-100 text-purple-800' :
+                                notification.type === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+                                notification.type === 'success' ? 'bg-green-100 text-green-800' :
+                                notification.type === 'error' ? 'bg-red-100 text-red-800' :
+                                'bg-blue-100 text-blue-800'
+                              }`}>
+                                {notification.type}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>
@@ -1323,66 +2327,164 @@ export default function AdminDashboard() {
       {/* Create Session Modal */}
       {showCreateSessionModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-slate-800 p-6 rounded-lg w-96 max-w-lg">
+          <div className="bg-slate-800 p-6 rounded-lg w-96 max-w-lg border border-amber-500/30">
             <h3 className="text-lg font-semibold text-white mb-4">Create New Time Slot</h3>
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-4">
+              <div className="flex items-center space-x-2 text-blue-400 text-sm">
+                <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-xs">i</span>
+                </div>
+                <span>Gym operates Monday to Saturday, 7:00 AM - 9:00 PM</span>
+              </div>
+            </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Date</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Date <span className="text-red-400">*</span>
+                </label>
                 <input
                   type="date"
                   value={newSession.date}
-                  onChange={(e) => setNewSession({...newSession, date: e.target.value})}
-                  className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white"
+                  min={getMinDateForBooking()}
+                  onChange={(e) => {
+                    const selectedDate = e.target.value
+                    if (selectedDate && !isValidGymDay(selectedDate)) {
+                      alert(`Gym is closed on ${getDayName(selectedDate)}s. Please select Monday through Saturday.`)
+                      return
+                    }
+                    setNewSession({...newSession, date: selectedDate})
+                  }}
+                  className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                 />
+                {newSession.date && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Selected: {getDayName(newSession.date)}, {new Date(newSession.date).toLocaleDateString()}
+                  </p>
+                )}
               </div>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Start Time</label>
-                  <input
-                    type="time"
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Start Time <span className="text-red-400">*</span>
+                  </label>
+                  <select
                     value={newSession.startTime}
-                    onChange={(e) => setNewSession({...newSession, startTime: e.target.value})}
-                    className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white"
-                  />
+                    onChange={(e) => {
+                      const startTime = e.target.value
+                      setNewSession({
+                        ...newSession, 
+                        startTime,
+                        endTime: startTime ? getRecommendedEndTime(startTime) : ''
+                      })
+                    }}
+                    className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                  >
+                    <option value="">Select start time</option>
+                    {generateTimeSlots().slice(0, -1).map(time => (
+                      <option key={time} value={time}>
+                        {new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          hour12: true
+                        })}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">End Time</label>
-                  <input
-                    type="time"
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    End Time <span className="text-red-400">*</span>
+                  </label>
+                  <select
                     value={newSession.endTime}
                     onChange={(e) => setNewSession({...newSession, endTime: e.target.value})}
-                    className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white"
-                  />
+                    className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                    disabled={!newSession.startTime}
+                  >
+                    <option value="">Select end time</option>
+                    {generateTimeSlots()
+                      .filter(time => {
+                        if (!newSession.startTime) return false
+                        const startMinutes = newSession.startTime.split(':').map(Number).reduce((h: number, m: number) => h * 60 + m)
+                        const timeMinutes = time.split(':').map(Number).reduce((h: number, m: number) => h * 60 + m)
+                        return timeMinutes > startMinutes
+                      })
+                      .map(time => (
+                        <option key={time} value={time}>
+                          {new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true
+                          })}
+                        </option>
+                      ))
+                    }
+                  </select>
                 </div>
               </div>
+              
+              {newSession.startTime && newSession.endTime && (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                  <p className="text-green-400 text-sm">
+                    Session Duration: {(() => {
+                      const startMinutes = newSession.startTime.split(':').map(Number).reduce((h: number, m: number) => h * 60 + m)
+                      const endMinutes = newSession.endTime.split(':').map(Number).reduce((h: number, m: number) => h * 60 + m)
+                      const duration = endMinutes - startMinutes
+                      const hours = Math.floor(duration / 60)
+                      const minutes = duration % 60
+                      return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`
+                    })()}
+                  </p>
+                </div>
+              )}
+              
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Capacity</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Capacity <span className="text-red-400">*</span>
+                </label>
                 <input
                   type="number"
                   value={newSession.capacity}
                   onChange={(e) => setNewSession({...newSession, capacity: e.target.value})}
-                  className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white"
+                  className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                   min="1"
                   max="50"
+                  placeholder="Max participants (1-50)"
                 />
+                <p className="text-xs text-gray-400 mt-1">
+                  Recommended: 10-20 for general sessions, 5-15 for classes
+                </p>
               </div>
+              
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Type</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Session Type</label>
                 <select
                   value={newSession.type}
                   onChange={(e) => setNewSession({...newSession, type: e.target.value})}
-                  className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white"
+                  className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                 >
-                  <option value="general">General</option>
-                  <option value="class">Class</option>
-                  <option value="personal-training">Personal Training</option>
+                  <option value="general">🏋️ General Workout</option>
+                  <option value="class">👥 Fitness Class</option>
+                  <option value="personal-training">🎯 Personal Training</option>
                 </select>
               </div>
             </div>
+            
             <div className="flex justify-end space-x-2 mt-6">
               <Button
                 variant="outline"
-                onClick={() => setShowCreateSessionModal(false)}
+                onClick={() => {
+                  setShowCreateSessionModal(false)
+                  setNewSession({
+                    date: "",
+                    startTime: "",
+                    endTime: "",
+                    capacity: "",
+                    type: "general"
+                  })
+                }}
                 className="border-gray-500 text-gray-300"
               >
                 Cancel
@@ -1390,6 +2492,7 @@ export default function AdminDashboard() {
               <Button
                 onClick={handleCreateSession}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={!newSession.date || !newSession.startTime || !newSession.endTime || !newSession.capacity}
               >
                 Create Session
               </Button>
@@ -1652,79 +2755,170 @@ export default function AdminDashboard() {
               <Edit className="h-5 w-5 mr-2 text-amber-400" />
               Edit Session
             </h3>
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-4">
+              <div className="flex items-center space-x-2 text-blue-400 text-sm">
+                <div className="w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                  <span className="text-white text-xs">i</span>
+                </div>
+                <span>Gym operates Monday to Saturday, 7:00 AM - 9:00 PM</span>
+              </div>
+            </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Date</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Date <span className="text-red-400">*</span>
+                </label>
                 <input
                   type="date"
                   value={editingSession.date}
-                  onChange={(e) => setEditingSession({...editingSession, date: e.target.value})}
-                  className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white"
+                  min={getMinDateForBooking()}
+                  onChange={(e) => {
+                    const selectedDate = e.target.value
+                    if (selectedDate && !isValidGymDay(selectedDate)) {
+                      alert(`Gym is closed on ${getDayName(selectedDate)}s. Please select Monday through Saturday.`)
+                      return
+                    }
+                    setEditingSession({...editingSession, date: selectedDate})
+                  }}
+                  className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                 />
+                {editingSession.date && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Selected: {getDayName(editingSession.date)}, {new Date(editingSession.date).toLocaleDateString()}
+                  </p>
+                )}
               </div>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Start Time</label>
-                  <input
-                    type="time"
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Start Time <span className="text-red-400">*</span>
+                  </label>
+                  <select
                     value={editingSession.start_time}
-                    onChange={(e) => setEditingSession({...editingSession, start_time: e.target.value})}
-                    className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white"
-                  />
+                    onChange={(e) => {
+                      const startTime = e.target.value
+                      setEditingSession({
+                        ...editingSession, 
+                        start_time: startTime,
+                        end_time: startTime && !editingSession.end_time ? getRecommendedEndTime(startTime) : editingSession.end_time
+                      })
+                    }}
+                    className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                  >
+                    <option value="">Select start time</option>
+                    {generateTimeSlots().slice(0, -1).map(time => (
+                      <option key={time} value={time}>
+                        {new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', {
+                          hour: 'numeric',
+                          minute: '2-digit',
+                          hour12: true
+                        })}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">End Time</label>
-                  <input
-                    type="time"
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    End Time <span className="text-red-400">*</span>
+                  </label>
+                  <select
                     value={editingSession.end_time}
                     onChange={(e) => setEditingSession({...editingSession, end_time: e.target.value})}
-                    className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white"
-                  />
+                    className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
+                    disabled={!editingSession.start_time}
+                  >
+                    <option value="">Select end time</option>
+                    {generateTimeSlots()
+                      .filter(time => {
+                        if (!editingSession.start_time) return false
+                        const startMinutes = editingSession.start_time.split(':').map(Number).reduce((h: number, m: number) => h * 60 + m)
+                        const timeMinutes = time.split(':').map(Number).reduce((h: number, m: number) => h * 60 + m)
+                        return timeMinutes > startMinutes
+                      })
+                      .map(time => (
+                        <option key={time} value={time}>
+                          {new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', {
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true
+                          })}
+                        </option>
+                      ))
+                    }
+                  </select>
                 </div>
               </div>
+              
+              {editingSession.start_time && editingSession.end_time && (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
+                  <p className="text-green-400 text-sm">
+                    Session Duration: {(() => {
+                      const startMinutes = editingSession.start_time.split(':').map(Number).reduce((h: number, m: number) => h * 60 + m)
+                      const endMinutes = editingSession.end_time.split(':').map(Number).reduce((h: number, m: number) => h * 60 + m)
+                      const duration = endMinutes - startMinutes
+                      const hours = Math.floor(duration / 60)
+                      const minutes = duration % 60
+                      return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`
+                    })()}
+                  </p>
+                </div>
+              )}
+              
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Capacity</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Capacity <span className="text-red-400">*</span>
+                </label>
                 <input
                   type="number"
                   value={editingSession.capacity}
                   onChange={(e) => setEditingSession({...editingSession, capacity: e.target.value})}
-                  className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white"
+                  className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                   min="1"
                   max="50"
+                  placeholder="Max participants (1-50)"
                 />
+                <p className="text-xs text-gray-400 mt-1">
+                  Recommended: 10-20 for general sessions, 5-15 for classes
+                </p>
               </div>
+              
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Type</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Session Type</label>
                 <select
                   value={editingSession.type}
                   onChange={(e) => setEditingSession({...editingSession, type: e.target.value})}
-                  className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white"
+                  className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                 >
-                  <option value="general">General</option>
-                  <option value="class">Class</option>
-                  <option value="personal-training">Personal Training</option>
+                  <option value="general">🏋️ General Workout</option>
+                  <option value="class">👥 Fitness Class</option>
+                  <option value="personal-training">🎯 Personal Training</option>
                 </select>
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">Instructor</label>
                 <input
                   type="text"
                   value={editingSession.instructor || ''}
                   onChange={(e) => setEditingSession({...editingSession, instructor: e.target.value})}
-                  className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white"
+                  className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                   placeholder="Self-guided"
                 />
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">Description</label>
                 <textarea
                   value={editingSession.description || ''}
                   onChange={(e) => setEditingSession({...editingSession, description: e.target.value})}
-                  className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white h-20"
+                  className="w-full p-2 bg-slate-700 border border-gray-600 rounded text-white h-20 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
                   placeholder="Session description"
                 />
               </div>
             </div>
+            
             <div className="flex justify-end space-x-2 mt-6">
               <Button
                 variant="outline"
@@ -1739,6 +2933,7 @@ export default function AdminDashboard() {
               <Button
                 onClick={handleUpdateSession}
                 className="bg-blue-600 hover:bg-blue-700 text-white"
+                disabled={!editingSession.date || !editingSession.start_time || !editingSession.end_time || !editingSession.capacity}
               >
                 Update Session
               </Button>
