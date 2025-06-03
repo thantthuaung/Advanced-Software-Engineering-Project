@@ -405,7 +405,7 @@ export default function HomePage() {
               </div>
               <div className="w-full h-1 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-400 rounded-full mb-4"></div>
               <p className="text-blue-200">
-                © 2024 James Cook University Singapore. All rights reserved.
+                © {new Date().getFullYear()} James Cook University Singapore. All rights reserved.
               </p>
               <p className="text-blue-300 text-sm mt-2">
                 Fitness Center Management System - Empowering Student Wellness

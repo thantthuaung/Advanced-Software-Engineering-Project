@@ -1866,12 +1866,12 @@ export default function AdminDashboard() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="text-center p-4 bg-amber-500/10 rounded-lg border border-amber-500/30">
                       <Trophy className="h-6 w-6 text-amber-400 mx-auto mb-2" />
-                      <p className="text-2xl font-bold text-white">6</p>
+                      <p className="text-2xl font-bold text-white">{achievementStats.totalTypes}</p>
                       <p className="text-amber-400 text-sm">Achievement Types</p>
                     </div>
                     <div className="text-center p-4 bg-green-500/10 rounded-lg border border-green-500/30">
                       <Users className="h-6 w-6 text-green-400 mx-auto mb-2" />
-                      <p className="text-2xl font-bold text-white">0</p>
+                      <p className="text-2xl font-bold text-white">{achievementStats.totalGranted}</p>
                       <p className="text-green-400 text-sm">Achievements Granted</p>
                     </div>
                   </div>

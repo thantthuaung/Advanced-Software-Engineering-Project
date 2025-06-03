@@ -12,8 +12,8 @@ export async function GET(request: NextRequest) {
     const db = getDatabase()
     const allUsers = db.getAllUsers()
     
-    // Filter users based on query parameters
-    let filteredUsers = allUsers
+    // Filter users based on query parameters and exclude admin users
+    let filteredUsers = allUsers.filter((user: any) => user.role !== 'admin')
     
     if (status) {
       filteredUsers = filteredUsers.filter((user: any) => user.status === status)

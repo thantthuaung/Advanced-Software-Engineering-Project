@@ -225,19 +225,13 @@ export default function LoginPage() {
                   Register here
                 </Link>
               </p>
-              <p className="text-sm text-gray-600">
-                Administrator?{" "}
-                <Link href="/admin/login" className="font-semibold text-amber-600 hover:text-amber-700 underline">
-                  Admin Portal
-                </Link>
-              </p>
             </div>
           </CardContent>
         </Card>
 
         {/* Footer */}
         <div className="text-center mt-8 text-blue-600">
-          <p className="text-sm font-medium">© 2024 James Cook University Singapore</p>
+          <p className="text-sm font-medium">© {new Date().getFullYear()} James Cook University Singapore</p>
           <p className="text-xs">Fitness Center Management System</p>
         </div>
       </div>

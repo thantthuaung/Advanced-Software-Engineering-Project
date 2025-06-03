@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
       FROM bookings b
       JOIN users u ON b.user_id = u.id
       JOIN gym_sessions s ON b.session_id = s.id
-      WHERE 1=1
+      WHERE u.role != 'admin'
     `
 
     const params = []

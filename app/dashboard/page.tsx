@@ -113,7 +113,15 @@ export default function DashboardPage() {
       })
       if (achievementsResponse.ok) {
         const achievementsData = await achievementsResponse.json()
-        setRecentAchievements(achievementsData.slice(0, 3))
+        // Access the earned achievements array from the response object
+        const earnedAchievements = achievementsData.earned || []
+        setRecentAchievements(earnedAchievements.slice(0, 3))
+        
+        // Update total points from achievements
+        setStats(prev => ({
+          ...prev,
+          totalPoints: achievementsData.totalPoints || 0
+        }))
       }
 
       // Fetch user-specific notifications
@@ -137,7 +145,6 @@ export default function DashboardPage() {
             const userStats = await userStatsResponse.json()
             setStats(prev => ({
               ...prev,
-              totalPoints: userStats.points || 0,
               currentStreak: userStats.streak || 0
             }))
           }
@@ -402,15 +409,21 @@ export default function DashboardPage() {
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {recentAchievements.map((userAchievement) => (
-                        <div key={userAchievement.achievementId} className="flex items-center space-x-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
-                          <div className="w-10 h-10 bg-amber-500 rounded-lg flex items-center justify-center">
-                            <Trophy className="h-5 w-5 text-white" />
+                      {recentAchievements.map((userAchievement, index) => (
+                        <div key={userAchievement.achievementId || (userAchievement as any).achievement_id || index} className="flex items-center space-x-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                          <div className="w-10 h-10 bg-amber-500 rounded-lg flex items-center justify-center text-lg">
+                            {(userAchievement as any).icon || '🏆'}
                           </div>
                           <div className="flex-1">
-                            <p className="font-semibold text-amber-900">Achievement</p>
-                            <p className="text-amber-600 text-sm">Progress: {userAchievement.progress}%</p>
-                            <Progress value={userAchievement.progress} className="mt-2" />
+                            <p className="font-semibold text-amber-900">
+                              {(userAchievement as any).name || 'Achievement Earned'}
+                            </p>
+                            <p className="text-amber-600 text-sm">
+                              {(userAchievement as any).description || 'Congratulations on your achievement!'}
+                            </p>
+                            <p className="text-amber-500 text-xs mt-1">
+                              +{(userAchievement as any).points || 0} points • Earned {(userAchievement as any).earned_at ? new Date((userAchievement as any).earned_at).toLocaleDateString() : 'recently'}
+                            </p>
                           </div>
                         </div>
                       ))}

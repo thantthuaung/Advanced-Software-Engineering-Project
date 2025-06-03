@@ -594,7 +594,7 @@ class SQLiteDatabase {
       SELECT b.*, u.first_name, u.last_name, u.email
       FROM bookings b
       JOIN users u ON b.user_id = u.id
-      WHERE b.session_id = ?
+      WHERE b.session_id = ? AND u.role != 'admin'
       ORDER BY b.created_at
     `)
     return stmt.all(sessionId)
@@ -669,8 +669,8 @@ class SQLiteDatabase {
   }
 
   getAdminStats(): AdminStats {
-    const totalUsers = this.db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number }
-    const activeUsers = this.db.prepare('SELECT COUNT(*) as count FROM users WHERE status = ?').get('approved') as { count: number }
+    const totalUsers = this.db.prepare('SELECT COUNT(*) as count FROM users WHERE role != ?').get('admin') as { count: number }
+    const activeUsers = this.db.prepare('SELECT COUNT(*) as count FROM users WHERE status = ? AND role != ?').get('approved', 'admin') as { count: number }
     const pendingApprovals = this.db.prepare('SELECT COUNT(*) as count FROM users WHERE status = ?').get('pending') as { count: number }
     const todayBookings = this.db.prepare('SELECT COUNT(*) as count FROM bookings WHERE date(created_at) = date(\'now\')').get() as { count: number }
     

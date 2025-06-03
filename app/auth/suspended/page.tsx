@@ -192,7 +192,7 @@ export default function SuspendedAccountPage() {
 
         {/* Footer */}
         <div className="text-center mt-8 text-blue-600">
-          <p className="text-sm font-medium">© 2024 James Cook University Singapore</p>
+          <p className="text-sm font-medium">© {new Date().getFullYear()} James Cook University Singapore</p>
           <p className="text-xs">Fitness Center Management System</p>
         </div>
       </div>

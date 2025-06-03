@@ -219,7 +219,7 @@ export default function AdminLoginPage() {
 
         {/* Footer */}
         <div className="text-center mt-8 text-gray-400">
-          <p className="text-sm font-medium">© 2024 James Cook University Singapore</p>
+          <p className="text-sm font-medium">© {new Date().getFullYear()} James Cook University Singapore</p>
           <p className="text-xs">Administrative Access Portal</p>
         </div>
       </div>

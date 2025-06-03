@@ -132,10 +132,33 @@ echo 👤 Demo Student Login:
 echo    Email: demo@my.jcu.edu.au
 echo    Password: demo123
 echo.
+echo 🎯 What you can do after startup:
+echo    • 📊 Admin Dashboard: Manage users, sessions, and bookings
+echo    • 📅 Book gym sessions and view schedules
+echo    • 🏆 Track achievements and fitness progress
+echo    • 🔔 Receive notifications and announcements
+echo    • 💳 Manage payments and membership details
+echo.
+echo 🔐 Access Points:
+echo    • 👥 Student Portal: http://localhost:3000
+echo    • 🛡️  Admin Dashboard: http://localhost:3000/admin/login
+echo    • 🏠 Regular User Login: http://localhost:3000/auth/login
+echo.
+echo 📋 How to Access Admin Dashboard:
+echo    1. Open http://localhost:3000/admin/login in your browser
+echo    2. Use admin credentials above to login
+echo    3. You'll be redirected to the admin dashboard
+echo    4. From there you can manage users, sessions, achievements, etc.
+echo.
 echo 💡 Useful Commands:
 echo    • Press Ctrl+C to stop the server
 echo    • Open http://localhost:3000 in your browser
 echo    • Check the console for any errors
+echo.
+echo 🔧 Troubleshooting:
+echo    • If port 3000 is busy, try: npm run dev -- --port 3001
+echo    • For database issues, check the data/ directory
+echo    • View logs in the terminal for debugging
 echo.
 echo 📚 For more information, check the README.md file
 echo ================================================
