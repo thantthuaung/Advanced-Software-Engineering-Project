@@ -43,3 +43,132 @@ The system supports two main user roles:
 | 6 | Virtual Gym Tour      | As a gym user, I want to explore a virtual tour of the gym facilities online (optional feature).   | Low      | 2             | Iteration 2 |
 | 7 | AI Workout Trainer    | As a gym user, I want personalized workout recommendations to improve my training results.         | Low      | 5             | Iteration 2 |
 | 8 | Session Reminders     | As a gym user, I want to receive notifications before my booked sessions to avoid missing them.    | Medium   | 3             | Iteration 2 |
+
+
+
+## User Stories - Week 3
+## 🧾 User Story: User Registration
+
+**As a** new gym user  
+**I want** to register securely online  
+**So that** I can access gym facilities and services  
+
+---
+
+### ✅ Acceptance Criteria
+- [ ] Registration form includes Full Name, JCU Email, and Password
+- [ ] Password strength validation and hashing
+- [ ] Registration confirmation after successful signup
+- [ ] User data is stored securely in the system database
+
+---
+
+### 📌 Priority: High  
+### ⏱ Estimated Effort: 3 days  
+### 🏷 Labels: `frontend`, `backend`, `security`, `iteration1`
+
+
+## 🧾 User Story: Session Booking
+
+**As a** gym user  
+**I want** to browse available gym sessions and book a timeslot in advance  
+**So that** I can plan my gym visits ahead of time  
+
+---
+
+### ✅ Acceptance Criteria
+- [ ] Display list of sessions with time, date, and available slots
+- [ ] Booking form connected to the user session
+- [ ] Store booking details in the backend
+- [ ] Prevent double-booking the same timeslot
+
+---
+
+### 📌 Priority: High  
+### ⏱ Estimated Effort: 4 days  
+### 🏷 Labels: `frontend`, `backend`, `calendar`, `iteration1`
+
+
+## 🧾 User Story: Admin User Management
+
+**As an** admin  
+**I want** to view and manage registered gym users  
+**So that** I can verify and control access to the gym system  
+
+---
+
+### ✅ Acceptance Criteria
+- [ ] Admin dashboard listing all registered users
+- [ ] Approve, reject, or deactivate users
+- [ ] Admin-only access via secure login
+- [ ] Changes to user status reflect in the database
+
+---
+
+### 📌 Priority: High  
+### ⏱ Estimated Effort: 3 days  
+### 🏷 Labels: `admin`, `backend`, `dashboard`, `iteration1`
+
+
+## 🧾 User Story: Manage Bookings
+
+**As a** gym user  
+**I want** to view my upcoming bookings and cancel future sessions (not on the same day)  
+**So that** I can manage my gym attendance more flexibly
+
+---
+
+### ✅ Acceptance Criteria
+- [ ] Display a list of all future bookings for the user
+- [ ] Cancel option available for bookings not on the same day
+- [ ] Successful cancellations update the system and release the slot
+- [ ] User receives confirmation of cancellation
+
+---
+
+### 📌 Priority: Medium  
+### ⏱ Estimated Effort: 3 days  
+### 🏷 Labels: `frontend`, `backend`, `user`, `iteration2`
+
+
+## 🧾 User Story: Booking Statistics
+
+**As an** admin  
+**I want** to see gym usage data and booking trends  
+**So that** I can monitor system usage and optimize session availability
+
+---
+
+### ✅ Acceptance Criteria
+- [ ] Admin dashboard displays number of bookings per session/date
+- [ ] Graphs or charts show usage patterns over time
+- [ ] Option to filter by time range or user type
+- [ ] Data sourced from real user interactions
+
+---
+
+### 📌 Priority: Medium  
+### ⏱ Estimated Effort: 4 days  
+### 🏷 Labels: `admin`, `analytics`, `dashboard`, `iteration2`
+
+
+## 🧾 User Story: Session Reminders
+
+**As a** gym user  
+**I want** to receive a reminder before my booked session  
+**So that** I don’t miss my workouts
+
+---
+
+### ✅ Acceptance Criteria
+- [ ] Reminder sent via email or app notification X hours before session
+- [ ] Notification includes session time and location
+- [ ] Users can opt in/out of reminders
+- [ ] Reminders triggered by background job or scheduler
+
+---
+
+### 📌 Priority: Medium  
+### ⏱ Estimated Effort: 3 days  
+### 🏷 Labels: `notifications`, `backend`, `UX`, `iteration2`
+
