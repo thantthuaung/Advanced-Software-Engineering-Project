@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS gym_sessions (
     instructor TEXT,
     description TEXT,
     difficulty TEXT CHECK(difficulty IN ('beginner', 'intermediate', 'advanced')),
-    waitlist_count INTEGER DEFAULT 0,
+
     price DECIMAL(10,2),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -81,120 +81,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     FOREIGN KEY (session_id) REFERENCES gym_sessions (id) ON DELETE CASCADE
 );
 
--- Waitlist table
-CREATE TABLE IF NOT EXISTS waitlist (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    session_id TEXT NOT NULL,
-    position INTEGER NOT NULL,
-    estimated_wait_time INTEGER,
-    notification_sent BOOLEAN DEFAULT false,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
-    FOREIGN KEY (session_id) REFERENCES gym_sessions (id) ON DELETE CASCADE
-);
 
--- Achievements table
-CREATE TABLE IF NOT EXISTS achievements (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    description TEXT NOT NULL,
-    icon TEXT NOT NULL,
-    category TEXT CHECK(category IN ('attendance', 'streak', 'milestone', 'social')) NOT NULL,
-    criteria TEXT NOT NULL,
-    points INTEGER NOT NULL,
-    rarity TEXT CHECK(rarity IN ('common', 'rare', 'epic', 'legendary')) NOT NULL,
-    is_hidden BOOLEAN DEFAULT false,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
--- User achievements table
-CREATE TABLE IF NOT EXISTS user_achievements (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    achievement_id TEXT NOT NULL,
-    unlocked_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    progress REAL DEFAULT 0.0 CHECK(progress BETWEEN 0 AND 100),
-    is_completed BOOLEAN DEFAULT false,
-    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
-    FOREIGN KEY (achievement_id) REFERENCES achievements (id) ON DELETE CASCADE,
-    UNIQUE(user_id, achievement_id)
-);
-
--- Notifications table
-CREATE TABLE IF NOT EXISTS notifications (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    type TEXT CHECK(type IN ('booking_reminder', 'waitlist_update', 'achievement', 'announcement', 'system')) NOT NULL,
-    title TEXT NOT NULL,
-    message TEXT NOT NULL,
-    data TEXT, -- JSON data
-    read BOOLEAN DEFAULT false,
-    scheduled_for DATETIME,
-    channels TEXT NOT NULL, -- JSON array
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-);
-
--- Feedback table
-CREATE TABLE IF NOT EXISTS feedback (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    type TEXT CHECK(type IN ('facility', 'session', 'general')) NOT NULL,
-    subject TEXT NOT NULL,
-    description TEXT NOT NULL,
-    rating INTEGER CHECK(rating BETWEEN 1 AND 5) NOT NULL,
-    status TEXT CHECK(status IN ('open', 'in-progress', 'resolved')) DEFAULT 'open',
-    attachments TEXT, -- JSON array
-    response_message TEXT,
-    response_admin_id TEXT,
-    response_date DATETIME,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-);
-
--- Announcements table
-CREATE TABLE IF NOT EXISTS announcements (
-    id TEXT PRIMARY KEY,
-    title TEXT NOT NULL,
-    content TEXT NOT NULL,
-    type TEXT CHECK(type IN ('info', 'warning', 'emergency', 'promotion')) NOT NULL,
-    author_id TEXT NOT NULL,
-    target_audience TEXT CHECK(target_audience IN ('all', 'students', 'staff', 'premium')) NOT NULL,
-    is_active BOOLEAN DEFAULT true,
-    published_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    expires_at DATETIME,
-    attachments TEXT, -- JSON array
-    FOREIGN KEY (author_id) REFERENCES users (id) ON DELETE CASCADE
-);
-
--- Recurring bookings table
-CREATE TABLE IF NOT EXISTS recurring_bookings (
-    id TEXT PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    day_of_week INTEGER CHECK(day_of_week BETWEEN 0 AND 6) NOT NULL,
-    start_time TIME NOT NULL,
-    end_time TIME NOT NULL,
-    is_active BOOLEAN DEFAULT true,
-    start_date DATE NOT NULL,
-    end_date DATE,
-    session_type TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-);
-
--- Workout buddies table
-CREATE TABLE IF NOT EXISTS workout_buddies (
-    id TEXT PRIMARY KEY,
-    requester_user_id TEXT NOT NULL,
-    target_user_id TEXT NOT NULL,
-    status TEXT CHECK(status IN ('pending', 'accepted', 'declined')) DEFAULT 'pending',
-    message TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    responded_at DATETIME,
-    FOREIGN KEY (requester_user_id) REFERENCES users (id) ON DELETE CASCADE,
-    FOREIGN KEY (target_user_id) REFERENCES users (id) ON DELETE CASCADE
-);
 
 -- Billing transactions table for payment history
 CREATE TABLE IF NOT EXISTS billing_transactions (
@@ -221,11 +108,7 @@ CREATE INDEX IF NOT EXISTS idx_gym_sessions_date ON gym_sessions(date);
 CREATE INDEX IF NOT EXISTS idx_bookings_user_id ON bookings(user_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_session_id ON bookings(session_id);
 CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);
-CREATE INDEX IF NOT EXISTS idx_waitlist_session_id ON waitlist(session_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
-CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
-CREATE INDEX IF NOT EXISTS idx_user_achievements_user_id ON user_achievements(user_id);
-CREATE INDEX IF NOT EXISTS idx_feedback_status ON feedback(status);
+
 
 -- Create triggers for updating timestamps
 CREATE TRIGGER IF NOT EXISTS update_users_timestamp 

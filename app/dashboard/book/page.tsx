@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowLeft, Calendar, Clock, Users, CheckCircle, AlertCircle, GraduationCap, Target, Dumbbell, LogOut } from "lucide-react"
+import { ArrowLeft, Calendar, Clock, Users, CheckCircle, AlertCircle, Target, Dumbbell, LogOut } from "lucide-react"
 import type { GymSession } from "@/lib/types"
 
 export default function BookSessionPage() {
@@ -96,35 +96,6 @@ export default function BookSessionPage() {
     }
   }
 
-  const handleJoinWaitlist = async (sessionId: string) => {
-    try {
-      const token = localStorage.getItem('auth-token')
-      const headers: any = { 'Content-Type': 'application/json' }
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`
-      }
-
-      const response = await fetch('/api/waitlist', {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        body: JSON.stringify({ sessionId, userId: user?.id })
-      })
-
-      if (response.ok) {
-        setAlert({ type: 'success', message: 'Added to waitlist successfully!' })
-        fetchData()
-      } else {
-        const errorData = await response.json()
-        setAlert({ type: 'error', message: errorData.error || 'Failed to join waitlist' })
-      }
-    } catch (error) {
-      setAlert({ type: 'error', message: 'An error occurred while joining waitlist' })
-    } finally {
-      setTimeout(() => setAlert(null), 5000)
-    }
-  }
-
   const formatTime = (timeString: string) => {
     const [hours, minutes] = timeString.split(':')
     const hour = parseInt(hours)
@@ -152,7 +123,7 @@ export default function BookSessionPage() {
   // Show loading screen while auth is initializing
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-amber-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-blue-600 font-medium">Loading...</p>
@@ -162,36 +133,27 @@ export default function BookSessionPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-amber-50">
-      {/* Header with Ocean Wave Pattern */}
-      <header className="bg-white shadow-lg border-b-4 border-blue-600 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-800 opacity-5"></div>
-        <div className="absolute bottom-0 left-0 w-full h-16">
-          <svg viewBox="0 0 1200 120" className="w-full h-full fill-blue-100 opacity-30">
-            <path d="M0,60 C300,100 600,20 900,60 C1050,80 1150,40 1200,60 L1200,120 L0,120 Z"/>
-          </svg>
-        </div>
-        <div className="container mx-auto px-6 py-6 relative z-10">
-          <div className="flex items-center space-x-4">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => router.push("/dashboard")}
-              className="border-blue-300 text-blue-700 hover:bg-blue-50 font-semibold"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Dashboard
-            </Button>
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-full flex items-center justify-center shadow-lg">
-                <GraduationCap className="h-6 w-6 text-white" />
-              </div>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-md border-b-2 border-blue-600">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => router.push("/dashboard")}
+                className="border-blue-300 text-blue-700 hover:bg-blue-50 font-semibold"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back to Dashboard
+              </Button>
               <div>
                 <h1 className="text-2xl font-bold text-blue-900">Book a Session</h1>
                 <p className="text-blue-700 font-medium">Schedule your workout at JCU Fitness Center</p>
               </div>
             </div>
-            <div className="ml-auto">
+            <div>
               <Button 
                 onClick={logout} 
                 variant="outline" 
@@ -208,8 +170,8 @@ export default function BookSessionPage() {
 
       <main className="container mx-auto px-6 py-8">
         {/* Date Selection */}
-        <Card className="mb-8 bg-white shadow-lg border border-blue-100">
-          <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-lg">
+        <Card className="mb-8 bg-white shadow-md border border-gray-200">
+          <CardHeader className="bg-blue-600 text-white">
             <CardTitle className="flex items-center">
               <Calendar className="h-5 w-5 mr-2" />
               Select Date
@@ -257,8 +219,8 @@ export default function BookSessionPage() {
           </TabsList>
 
           <TabsContent value="general">
-            <Card className="bg-white shadow-lg border border-blue-100">
-              <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-t-lg">
+            <Card className="bg-white shadow-md border border-gray-200">
+              <CardHeader className="bg-blue-600 text-white">
                 <CardTitle>Gym Access Sessions</CardTitle>
                 <CardDescription className="text-blue-100">Book your time slot for independent gym access</CardDescription>
               </CardHeader>
@@ -342,21 +304,12 @@ export default function BookSessionPage() {
                                 )}
                               </Button>
                             ) : (
-                              <div className="space-y-2">
-                                <Button
-                                  disabled
-                                  className="w-full bg-gray-300 text-gray-500 cursor-not-allowed"
-                                >
-                                  Session Full
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  onClick={() => handleJoinWaitlist(session.id)}
-                                  className="w-full border-amber-300 text-amber-600 hover:bg-amber-50 font-medium"
-                                >
-                                  Join Waitlist
-                                </Button>
-                              </div>
+                              <Button
+                                disabled
+                                className="w-full bg-gray-300 text-gray-500 cursor-not-allowed"
+                              >
+                                Session Full
+                              </Button>
                             )}
                           </div>
                         </div>

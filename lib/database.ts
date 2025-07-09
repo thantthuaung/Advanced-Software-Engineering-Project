@@ -525,7 +525,6 @@ class SQLiteDatabase {
       sessionData.instructor || null,
       sessionData.description || null,
       sessionData.difficulty || null,
-      sessionData.waitlist_count || sessionData.waitlistCount || 0,
       sessionData.price || null,
       now,
       now
@@ -632,21 +631,7 @@ class SQLiteDatabase {
     )
   }
 
-  // Analytics methods
-  getSessionAnalytics() {
-    const stmt = this.db.prepare(`
-      SELECT 
-        s.start_time as time,
-        COUNT(b.id) as bookings,
-        AVG(s.current_bookings * 100.0 / s.capacity) as utilization
-      FROM gym_sessions s
-      LEFT JOIN bookings b ON s.id = b.session_id AND b.status = 'confirmed'
-      WHERE s.date >= date('now', '-30 days')
-      GROUP BY s.start_time
-      ORDER BY bookings DESC
-    `)
-    return stmt.all()
-  }
+
 
   getWeeklySessionCount() {
     const stmt = this.db.prepare(`
@@ -674,11 +659,7 @@ class SQLiteDatabase {
     const pendingApprovals = this.db.prepare('SELECT COUNT(*) as count FROM users WHERE status = ?').get('pending') as { count: number }
     const todayBookings = this.db.prepare('SELECT COUNT(*) as count FROM bookings WHERE date(created_at) = date(\'now\')').get() as { count: number }
     
-    const analytics = this.getSessionAnalytics()
-    const popularTimeSlots = analytics.map((row: any) => ({
-      time: row.time,
-      bookings: row.bookings
-    }))
+    const popularTimeSlots: { time: string; bookings: number }[] = []
 
     return {
       totalUsers: totalUsers.count,
@@ -693,14 +674,9 @@ class SQLiteDatabase {
         yearly: 0,
         breakdown: []
       },
-      peakHours: analytics.map((row: any) => ({
-        hour: parseInt(row.time.split(':')[0]),
-        utilization: row.utilization || 0
-      })),
+      peakHours: [],
       membershipDistribution: [],
-      waitlistStats: { averageWaitTime: 0, totalWaitlisted: 0 },
-      achievementStats: { mostEarned: '', totalUnlocked: 0 },
-      feedbackSummary: { averageRating: 0, openTickets: 0 }
+
     }
   }
 

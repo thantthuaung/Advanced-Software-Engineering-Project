@@ -107,7 +107,7 @@ export default function AdminDashboard() {
   const [bookings, setBookings] = useState<any[]>([])
   const [weekSessions, setWeekSessions] = useState<any[]>([])
   const [weeklyData, setWeeklyData] = useState<any[]>([])
-  const [sessionAnalytics, setSessionAnalytics] = useState<any[]>([])
+
   
   // Stats and filters
   const [stats, setStats] = useState({
@@ -311,45 +311,7 @@ export default function AdminDashboard() {
         setBillingTransactions(Array.isArray(billingData) ? billingData : [])
       }
 
-      // Fetch session analytics
-      const analyticsResponse = await fetch('/api/admin/analytics')
-      if (analyticsResponse.ok) {
-        const analyticsData = await analyticsResponse.json()
-        
-        // Convert analytics object to array of analytics cards
-        const analyticsCards = [
-          {
-            id: 'peak-hours',
-            title: 'Peak Hours',
-            description: 'Most popular time slots',
-            value: analyticsData.peakHours?.[0]?.time || 'No data',
-            details: `${analyticsData.peakHours?.[0]?.bookings || 0} bookings`
-          },
-          {
-            id: 'weekly-utilization',
-            title: 'Weekly Utilization',
-            description: 'Overall gym usage',
-            value: `${analyticsData.weeklyStats?.utilization || 0}%`,
-            details: `${analyticsData.weeklyStats?.totalBookings || 0} bookings this week`
-          },
-          {
-            id: 'session-count',
-            title: 'Active Sessions',
-            description: 'Total sessions this week',
-            value: analyticsData.weeklyStats?.totalSessions || 0,
-            details: `${analyticsData.monthlyTrends?.averageDaily || 0} avg daily`
-          },
-          {
-            id: 'user-stats',
-            title: 'Active Users',
-            description: 'Approved members',
-            value: analyticsData.userStats?.activeUsers || 0,
-            details: `${analyticsData.userStats?.pendingApprovals || 0} pending approval`
-          }
-        ]
-        
-        setSessionAnalytics(analyticsCards)
-      }
+
 
       // Fetch sessions for today by default
       await fetchSessions(new Date().toISOString().split('T')[0])
@@ -471,21 +433,19 @@ export default function AdminDashboard() {
   // Show loading screen while auth is initializing
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-400 mx-auto mb-4"></div>
-          <p className="text-white text-xl">Loading admin dashboard...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-blue-600 font-medium">Loading Admin Dashboard...</p>
         </div>
       </div>
     )
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
-        <div className="text-white text-xl">Loading admin dashboard...</div>
-      </div>
-    )
+  // Redirect non-admin users
+  if (!user || user.role !== "admin") {
+    router.push("/auth/login")
+    return null
   }
 
   const handleLogout = () => {
@@ -1113,58 +1073,30 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-slate-800/90 backdrop-blur-lg border-b border-amber-500/30 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+      <header className="bg-white shadow-md border-b-2 border-blue-600">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              {/* JCU Official Logo */}
-              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg p-1">
-                <svg viewBox="0 0 200 150" className="w-full h-full">
-                  {/* JCU Logo Recreation */}
-                  <defs>
-                    <linearGradient id="sunGradientAdminDash" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#F59E0B"/>
-                      <stop offset="100%" stopColor="#D97706"/>
-                    </linearGradient>
-                    <linearGradient id="waveGradientAdminDash" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#2563EB"/>
-                      <stop offset="100%" stopColor="#1D4ED8"/>
-                    </linearGradient>
-                  </defs>
-                  
-                  {/* Sun */}
-                  <circle cx="150" cy="30" r="18" fill="url(#sunGradientAdminDash)"/>
-                  <path d="M150,5 L155,20 L170,15 L160,25 L175,30 L160,35 L170,45 L155,40 L150,55 L145,40 L130,45 L140,35 L125,30 L140,25 L130,15 L145,20 Z" fill="url(#sunGradientAdminDash)"/>
-                  
-                  {/* Ocean Waves */}
-                  <path d="M10,60 Q50,45 90,60 T170,60 L170,90 Q130,75 90,90 T10,90 Z" fill="url(#waveGradientAdminDash)"/>
-                  <path d="M10,80 Q50,65 90,80 T170,80 L170,110 Q130,95 90,110 T10,110 Z" fill="url(#waveGradientAdminDash)" opacity="0.8"/>
-                  <path d="M10,100 Q50,85 90,100 T170,100 L170,130 Q130,115 90,130 T10,130 Z" fill="url(#waveGradientAdminDash)" opacity="0.6"/>
-                  
-                  {/* JCU Letters */}
-                  <text x="20" y="45" fontSize="24" fontWeight="bold" fill="#1F2937">JCU</text>
-                </svg>
-              </div>
-              <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-full flex items-center justify-center">
-                <Crown className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white">Admin Dashboard</h1>
-                <p className="text-sm text-gray-300">JCU Fitness Center</p>
+              <div className="flex items-center space-x-2">
+                <Shield className="h-6 w-6 text-blue-600" />
+                <div>
+                  <h1 className="text-2xl font-bold text-blue-900">JCU Fitness Center</h1>
+                  <p className="text-blue-700 font-medium">Admin Dashboard</p>
+                </div>
               </div>
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-right">
-                <p className="text-sm font-medium text-white">{user?.firstName} {user?.lastName}</p>
-                <p className="text-xs text-gray-300">{user?.email}</p>
+                <p className="text-sm text-blue-600 font-medium">Administrator</p>
+                <p className="text-lg font-bold text-blue-900">{user.firstName} {user.lastName}</p>
               </div>
-              <Button
-                onClick={handleLogout}
-                variant="outline"
+              <Button 
+                onClick={logout} 
+                variant="outline" 
                 size="sm"
-                className="border-amber-500/50 text-amber-400 hover:bg-amber-500/10"
+                className="border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-700 font-semibold"
               >
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
@@ -1172,7 +1104,7 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -1407,24 +1339,6 @@ export default function AdminDashboard() {
           </TabsContent>
 
           <TabsContent value="sessions" className="space-y-6">
-            {/* Session Analytics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {sessionAnalytics.map((analytics) => (
-                <Card key={analytics.id} className="bg-slate-800/50 border-amber-500/30">
-                  <CardHeader>
-                    <CardTitle className="text-white text-lg">{analytics.title}</CardTitle>
-                    <CardDescription className="text-gray-300">{analytics.description}</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="text-2xl font-bold text-amber-400">{analytics.value}</div>
-                      <div className="text-sm text-gray-400">{analytics.details}</div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
             {/* Session Management */}
             <Card className="bg-slate-800/50 border-amber-500/30">
               <CardHeader>
@@ -1690,63 +1604,6 @@ export default function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
-
-            {/* Booking Statistics */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card className="bg-gradient-to-br from-green-500/20 to-green-600/20 border border-green-500/30">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-green-400 text-sm font-medium">Total Bookings</p>
-                      <p className="text-2xl font-bold text-white">{bookings.length}</p>
-                    </div>
-                    <CheckCircle className="h-8 w-8 text-green-400" />
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="bg-gradient-to-br from-blue-500/20 to-blue-600/20 border border-blue-500/30">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-blue-400 text-sm font-medium">Confirmed</p>
-                      <p className="text-2xl font-bold text-white">
-                        {bookings.filter(b => b.status === 'confirmed').length}
-                      </p>
-                    </div>
-                    <Calendar className="h-8 w-8 text-blue-400" />
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="bg-gradient-to-br from-red-500/20 to-red-600/20 border border-red-500/30">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-red-400 text-sm font-medium">Cancelled</p>
-                      <p className="text-2xl font-bold text-white">
-                        {bookings.filter(b => b.status === 'cancelled').length}
-                      </p>
-                    </div>
-                    <XCircle className="h-8 w-8 text-red-400" />
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card className="bg-gradient-to-br from-amber-500/20 to-amber-600/20 border border-amber-500/30">
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-amber-400 text-sm font-medium">Capacity Used</p>
-                      <p className="text-2xl font-bold text-white">
-                        {Math.round((bookings.filter(b => b.status === 'confirmed').length / Math.max(bookings.length * 0.1, 1)) * 100)}%
-                      </p>
-                    </div>
-                    <Users className="h-8 w-8 text-amber-400" />
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
 
             {/* Bookings List */}
             <Card className="bg-slate-800/50 border-amber-500/30">

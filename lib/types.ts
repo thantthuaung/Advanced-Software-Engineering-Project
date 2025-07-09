@@ -86,7 +86,6 @@ export interface GymSession {
   instructor?: string
   description?: string
   difficulty?: "beginner" | "intermediate" | "advanced"
-  waitlistCount: number
   price?: number
 }
 
@@ -128,108 +127,6 @@ export interface Waitlist {
   notificationSent: boolean
 }
 
-export interface Achievement {
-  id: string
-  name: string
-  description: string
-  icon: string
-  category: "attendance" | "streak" | "milestone" | "social"
-  criteria: string
-  points: number
-  rarity: "common" | "rare" | "epic" | "legendary"
-  isHidden: boolean
-}
-
-export interface UserAchievement {
-  userId: string
-  achievementId: string
-  unlockedAt: string
-  progress: number
-  isCompleted: boolean
-}
-
-export interface Notification {
-  id: string
-  userId: string
-  type: "booking_reminder" | "waitlist_update" | "achievement" | "announcement" | "system"
-  title: string
-  message: string
-  data?: Record<string, any>
-  read: boolean
-  createdAt: string
-  scheduledFor?: string
-  channels: ("email" | "sms" | "push")[]
-}
-
-export interface Announcement {
-  id: string
-  title: string
-  content: string
-  type: "info" | "warning" | "emergency" | "promotion"
-  authorId: string
-  targetAudience: "all" | "students" | "staff" | "premium"
-  isActive: boolean
-  publishedAt: string
-  expiresAt?: string
-  attachments?: string[]
-}
-
-export interface Challenge {
-  id: string
-  name: string
-  description: string
-  type: "individual" | "group" | "department"
-  startDate: string
-  endDate: string
-  criteria: string
-  reward: {
-    points: number
-    achievement?: string
-    prize?: string
-  }
-  participants: string[]
-  leaderboard: { userId: string; score: number; rank: number }[]
-  isActive: boolean
-}
-
-export interface WorkoutBuddy {
-  id: string
-  requesterUserId: string
-  targetUserId: string
-  status: "pending" | "accepted" | "declined"
-  message?: string
-  createdAt: string
-  respondedAt?: string
-}
-
-export interface Feedback {
-  id: string
-  userId: string
-  type: "facility" | "session" | "general"
-  subject: string
-  description: string
-  rating: number
-  status: "open" | "in-progress" | "resolved"
-  attachments?: string[]
-  createdAt: string
-  response?: {
-    message: string
-    adminId: string
-    respondedAt: string
-  }
-}
-
-export interface Locker {
-  id: string
-  number: string
-  size: "small" | "medium" | "large"
-  location: string
-  status: "available" | "rented" | "maintenance"
-  monthlyRate: number
-  currentTenantId?: string
-  rentedUntil?: string
-}
-
 export interface AdminStats {
   totalUsers: number
   activeUsers: number
@@ -245,75 +142,6 @@ export interface AdminStats {
   }
   peakHours: { hour: number; utilization: number }[]
   membershipDistribution: { type: string; count: number }[]
-  waitlistStats: { averageWaitTime: number; totalWaitlisted: number }
-  achievementStats: { mostEarned: string; totalUnlocked: number }
-  feedbackSummary: { averageRating: number; openTickets: number }
-}
-
-export interface Analytics {
-  userEngagement: {
-    dailyActiveUsers: number
-    weeklyActiveUsers: number
-    monthlyActiveUsers: number
-    averageSessionDuration: number
-    retentionRate: number
-  }
-  facilityUsage: {
-    peakHours: { hour: number; percentage: number }[]
-    roomUtilization: { room: string; percentage: number }[]
-  }
-  financial: {
-    revenue: number
-    projectedRevenue: number
-    membershipGrowth: number
-    paymentFailures: number
-  }
-}
-
-export interface CalendarIntegration {
-  id: string
-  userId: string
-  provider: "google" | "outlook" | "apple"
-  accessToken: string
-  refreshToken: string
-  calendarId: string
-  syncEnabled: boolean
-  lastSync: string
-}
-
-export interface AIRecommendation {
-  id: string
-  userId: string
-  type: "workout_time" | "class" | "buddy"
-  recommendation: string
-  confidence: number
-  reasoning: string
-  createdAt: string
-  accepted?: boolean
-}
-
-export interface EmergencyContact {
-  id: string
-  facilityId: string
-  type: "medical" | "security" | "maintenance" | "management"
-  name: string
-  phone: string
-  email: string
-  isActive: boolean
-}
-
-export interface MaintenanceRequest {
-  id: string
-  facilityArea?: string
-  reportedBy: string
-  description: string
-  priority: "low" | "medium" | "high" | "emergency"
-  status: "reported" | "assigned" | "in-progress" | "completed"
-  assignedTo?: string
-  createdAt: string
-  completedAt?: string
-  cost?: number
-  images?: string[]
 }
 
 export interface ApiResponse<T> {
@@ -327,7 +155,6 @@ export interface PaginatedResponse<T> {
   data: T[]
   pagination: {
     page: number
-    limit: number
     total: number
     totalPages: number
   }
@@ -336,19 +163,6 @@ export interface PaginatedResponse<T> {
 export interface BookingForm {
   sessionId: string
   notes?: string
-  isRecurring?: boolean
-  recurringPattern?: {
-    frequency: "weekly" | "biweekly" | "monthly"
-    endDate?: string
-  }
-}
-
-export interface FeedbackForm {
-  type: "facility" | "session" | "general"
-  subject: string
-  description: string
-  rating: number
-  attachments?: File[]
 }
 
 export interface UserProfileForm {
@@ -361,5 +175,4 @@ export interface UserProfileForm {
     relationship: string
   }
   preferences: Partial<UserPreferences>
-  healthProfile?: Partial<HealthProfile>
 }
