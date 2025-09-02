@@ -1,9 +1,74 @@
-# Advanced-Software-Engineering-Project
+## 👥 Team Roles and Contributions
+
+### **Class - B**
+### **Group - 4**
+
+### **Sein Linnn** (Student ID: 14742770)  
+**Role:** Full-Stack Developer and System Designer  
+
+**Responsibilities:**
+
+- **Full-Stack Development:**  
+  Implemented the core functionalities of the Gym Management System, including **session booking**, **booking management (view/cancel)**, **admin dashboard**, **analytics dashboard**, **session reminders**, and the **virtual gym tour**. Handled both backend and frontend components using **FastAPI**, **React.js**, and **PostgreSQL**. Integrated **Chart.js** for data visualization.
+
+- **System Design:**  
+  Designed the overall system architecture, including the database schema and API structure. Planned how frontend components communicate with the backend and ensured scalability, maintainability, and performance across the application.
+
+**Key Contributions:**
+- Developed and integrated all booking and admin-related features.
+- Designed and implemented the analytics and reminder systems.
+- Provided architectural structure and technical direction for the project.
+
+---
+
+### **Thant Thu Aung** (Student ID: 14674144)  
+**Role:** Full-Stack Developer, SCRUM Coordinator, and Documentation Lead  
+
+**Responsibilities:**
+
+- **Full-Stack Development:**  
+  Developed the **user authentication and profile management system**, including the **login page**, **registration form**, and **user profile interface**. Utilized **React.js** for the frontend, **FastAPI** for the backend, and **PostgreSQL** for data storage. Implemented secure authentication using **JWT tokens**.
+
+- **SCRUM Coordination:**  
+  Oversaw sprint planning and task allocation. Maintained the **GitHub Project Board**, created and updated **burndown and velocity charts**, and ensured that all team activities aligned with sprint goals and deadlines.
+
+- **Documentation:**  
+  Led the preparation and organization of all documentation deliverables. This included writing user stories, technical overviews, sprint summaries, retrospectives, and compiling the final project report.
+
+**Key Contributions:**
+- Delivered a complete and secure user account system.
+- Managed sprint execution, task tracking, and team coordination.
+- Produced comprehensive and well-structured documentation for both iterations.
+
+---
+
+
+## ✅ Team Summary
+
+| Name               | Role                                                  | Primary Responsibilities                                                                 |
+|--------------------|-------------------------------------------------------|------------------------------------------------------------------------------------------|
+| **Thant Thu Aung** | Full-Stack Developer, SCRUM Coordinator, Docs Lead    | User login/registration, profile management, sprint planning, GitHub tracking, reporting |
+| **Sein Linnn**     | Full-Stack Developer, System Designer                 | Session booking, admin features, system architecture, analytics, reminders, virtual tour |
+
+---
+
 # JCU Gym Management System
 
 This project is a web application prototype for managing gym membership, booking, and administration at James Cook University (JCU) Singapore campus.
 
-## Project Overview - Week 1
+## How to submit
+
+1. Add your instructor (JCU-Australia: jc138691@gmail.com Dmitry Konovalov) as a team member to view your project on github
+2. Submit link to your repository
+3. Download your github repository as a zip file and submit via LearnJCU.
+
+## Team
+
+**Advanced Software Engineering Project Team**
+1. Student 1 - Sein Linn
+2. Student 2 - Thant Thu Aung
+
+## Project Overview
 
 The system supports two main user roles:
 
@@ -11,158 +76,61 @@ The system supports two main user roles:
   - Register online securely  
   - Book gym sessions in advance  
   - View and manage bookings  
-    
+  - Optional virtual gym tour and AI workout trainer  
 
 - **Administrators**:  
   - Manage user registrations  
   - Track gym usage and booking statistics  
 
-## Initial Backlog Ideas
+# Project planning BEFORE iteration-1
 
-| User Story                                                                 | Priority |
-|----------------------------------------------------------------------------|----------|
-| **User registration:** Allow new gym users to register securely online.    | High     |
-| **Session booking:** Enable users to browse and book available gym sessions in advance. | High     |
-| **Manage bookings:** Users can view and cancel their future bookings (except same-day). | Medium   |
-| **Admin user management:** Admin can verify and manage registered gym users. | High     |
+**Total User Stories:** 8 stories
+**Total Estimated Effort:** 27 days
 
+## User Stories by Priority:
 
+### High Priority (Must Have):
+* [User Registration](./user_stories/user_story_01_registration.md), priority High, 3 days 
+* [Session Booking](./user_stories/user_story_02_session_booking.md), priority High, 4 days
+* [Admin User Management](./user_stories/user_story_03_admin_management.md), priority High, 3 days
 
-## User Stories - Week 2
+### Medium Priority (Should Have):
+* [Manage Bookings](./user_stories/user_story_04_manage_bookings.md), priority Medium, 3 days
+* [Booking Statistics](./user_stories/user_story_05_booking_statistics.md), priority Medium, 4 days
+* [Session Reminders](./user_stories/user_story_06_session_reminders.md), priority Medium, 3 days
 
-| # | Title                 | Description                                                                                           | Priority | Effort (days) | Iteration   |
-|---|-----------------------|---------------------------------------------------------------------------------------------------|----------|---------------|-------------|
-| 1 | User Registration     | As a new gym user, I want to register securely online so I can access gym facilities and services. | High     | 3             | Iteration 1 |
-| 2 | Session Booking       | As a gym user, I want to browse available gym sessions and book a timeslot in advance.             | High     | 4             | Iteration 1 |
-| 3 | Manage Bookings       | As a gym user, I want to view my upcoming bookings and cancel future bookings except for same-day.| Medium   | 3             | Iteration 2 |
-| 4 | Admin User Management | As an admin, I want to view and manage registered gym users so I can verify memberships.           | High     | 3             | Iteration 1 |
+### Low Priority (Could Have):
+* [Virtual Gym Tour](./user_stories/user_story_07_virtual_tour.md), priority Low, 2 days
+* [AI Workout Trainer](./user_stories/user_story_08_ai_trainer.md), priority Low, 5 days
 
+**Total:** 27 days
 
+## Iteration 1 [duration 3-4 weeks], Start: [Add start date] - End: [Add end date]
 
+**Goal:** Implement core functionality for user registration, session booking, and basic admin features.
 
-## User Stories - Week 3
-## 🧾 User Story: User Registration
+**Selected User Stories:**
+1. [User Registration](./user_stories/user_story_01_registration.md), priority High, 3 days 
+2. [Session Booking](./user_stories/user_story_02_session_booking.md), priority High, 4 days
+3. [Admin User Management](./user_stories/user_story_03_admin_management.md), priority High, 3 days
+4. [Manage Bookings](./user_stories/user_story_04_manage_bookings.md), priority Medium, 3 days
 
-**As a** new gym user  
-**I want** to register securely online  
-**So that** I can access gym facilities and services  
+**Total:** 10 days
 
----
+### Iteration 2 [duration 3-4 weeks], Start: [Add start date] - End: [Add end date]
 
-### ✅ Acceptance Criteria
-- [ ] Registration form includes Full Name, JCU Email, and Password
-- [ ] Password strength validation and hashing
-- [ ] Registration confirmation after successful signup
-- [ ] User data is stored securely in the system database
+**Goal:** Enhance user experience with booking management, analytics, and notification features.
 
----
+**Selected User Stories:**
+1. [Booking Statistics](./user_stories/user_story_05_booking_statistics.md), priority Medium, 4 days
+2. [Session Reminders](./user_stories/user_story_06_session_reminders.md), priority Medium, 3 days
+3. [Virtual Gym Tour](./user_stories/user_story_07_virtual_tour.md), priority Low, 2 days
 
-### 📌 Priority: High  
-### ⏱ Estimated Effort: 3 days  
-### 🏷 Labels: `frontend`, `backend`, `security`, `iteration1`
-
-
-## 🧾 User Story: Session Booking
-
-**As a** gym user  
-**I want** to browse available gym sessions and book a timeslot in advance  
-**So that** I can plan my gym visits ahead of time  
-
----
-
-### ✅ Acceptance Criteria
-- [ ] Display list of sessions with time, date, and available slots
-- [ ] Booking form connected to the user session
-- [ ] Store booking details in the backend
-- [ ] Prevent double-booking the same timeslot
-
----
-
-### 📌 Priority: High  
-### ⏱ Estimated Effort: 4 days  
-### 🏷 Labels: `frontend`, `backend`, `calendar`, `iteration1`
+**Total:** 10 days
 
 
-## 🧾 User Story: Admin User Management
+# Actual iterations
+1. [Iteration-1](./iteration_1.md)
+2. [Iteration-2](./iteration_2.md)
 
-**As an** admin  
-**I want** to view and manage registered gym users  
-**So that** I can verify and control access to the gym system  
-
----
-
-### ✅ Acceptance Criteria
-- [ ] Admin dashboard listing all registered users
-- [ ] Approve, reject, or deactivate users
-- [ ] Admin-only access via secure login
-- [ ] Changes to user status reflect in the database
-
----
-
-### 📌 Priority: High  
-### ⏱ Estimated Effort: 3 days  
-### 🏷 Labels: `admin`, `backend`, `dashboard`, `iteration1`
-
-
-## 🧾 User Story: Manage Bookings
-
-**As a** gym user  
-**I want** to view my upcoming bookings and cancel future sessions (not on the same day)  
-**So that** I can manage my gym attendance more flexibly
-
----
-
-### ✅ Acceptance Criteria
-- [ ] Display a list of all future bookings for the user
-- [ ] Cancel option available for bookings not on the same day
-- [ ] Successful cancellations update the system and release the slot
-- [ ] User receives confirmation of cancellation
-
----
-
-### 📌 Priority: Medium  
-### ⏱ Estimated Effort: 3 days  
-### 🏷 Labels: `frontend`, `backend`, `user`, `iteration2`
-
-
-## 🧾 User Story: Booking Statistics
-
-**As an** admin  
-**I want** to see gym usage data and booking trends  
-**So that** I can monitor system usage and optimize session availability
-
----
-
-### ✅ Acceptance Criteria
-- [ ] Admin dashboard displays number of bookings per session/date
-- [ ] Graphs or charts show usage patterns over time
-- [ ] Option to filter by time range or user type
-- [ ] Data sourced from real user interactions
-
----
-
-### 📌 Priority: Medium  
-### ⏱ Estimated Effort: 4 days  
-### 🏷 Labels: `admin`, `analytics`, `dashboard`, `iteration2`
-
-
-## 🧾 User Story: Session Reminders
-
-**As a** gym user  
-**I want** to receive a reminder before my booked session  
-**So that** I don’t miss my workouts
-
----
-
-### ✅ Acceptance Criteria
-- [ ] Reminder sent via email or app notification X hours before session
-- [ ] Notification includes session time and location
-- [ ] Users can opt in/out of reminders
-- [ ] Reminders triggered by background job or scheduler
-
----
-
-### 📌 Priority: Medium  
-### ⏱ Estimated Effort: 3 days  
-### 🏷 Labels: `notifications`, `backend`, `UX`, `iteration2`
 
